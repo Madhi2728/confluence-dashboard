@@ -1,15 +1,20 @@
 import React, { useState, useMemo } from "react";
-import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight } from "lucide-react";
+import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks } from "lucide-react";
 
 const BASE_PATIENTS = [
-  { id: "P-104", name: "R. Sharma", age: 62, sex: "M", condition: "Acute Myocardial Infarction", clinicalRisk: 92, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 88, bed: "Cardiac ICU", resourceFit: 40, wait: "6 min" },
-  { id: "P-211", name: "A. Fatima", age: 29, sex: "F", condition: "High-Risk Pregnancy, 34wk", clinicalRisk: 78, scheme: "Janani Suraksha Yojana", policyMatch: 92, bed: "Maternity ICU", resourceFit: 25, wait: "10 min" },
-  { id: "P-098", name: "T. Joshi", age: 5, sex: "M", condition: "Febrile Seizure", clinicalRisk: 70, scheme: "CGHS", policyMatch: 90, bed: "Pediatric ICU", resourceFit: 20, wait: "8 min" },
-  { id: "P-176", name: "M. Reddy", age: 71, sex: "M", condition: "Acute Renal Failure", clinicalRisk: 85, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 60, bed: "Dialysis Unit", resourceFit: 35, wait: "15 min" },
-  { id: "P-233", name: "S. Iyer", age: 8, sex: "F", condition: "Severe Pneumonia", clinicalRisk: 68, scheme: "CGHS", policyMatch: 95, bed: "Pediatric Ward", resourceFit: 80, wait: "22 min" },
-  { id: "P-150", name: "P. Nair", age: 58, sex: "F", condition: "Oncology — Chemo Cycle 3", clinicalRisk: 60, scheme: "State Health Scheme", policyMatch: 45, bed: "Day-Care Oncology", resourceFit: 50, wait: "35 min" },
-  { id: "P-087", name: "D. Singh", age: 34, sex: "M", condition: "Post-Op Ortho Trauma", clinicalRisk: 52, scheme: "ESIC", policyMatch: 70, bed: "Ortho Ward", resourceFit: 65, wait: "40 min" },
-  { id: "P-192", name: "K. Verma", age: 45, sex: "M", condition: "Diabetic Foot Ulcer", clinicalRisk: 40, scheme: "MediClaim+ (Private)", policyMatch: 55, bed: "General Ward", resourceFit: 90, wait: "1 hr 10 min" },
+  { id: "P-104", name: "R. Sharma", age: 62, sex: "M", condition: "Acute Myocardial Infarction", clinicalRisk: 92, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 88, bed: "Cardiac ICU", resourceFit: 40, wait: "6 min", estSavings: 185000, timeSavedMin: 34 },
+  { id: "P-211", name: "A. Fatima", age: 29, sex: "F", condition: "High-Risk Pregnancy, 34wk", clinicalRisk: 78, scheme: "Janani Suraksha Yojana", policyMatch: 92, bed: "Maternity ICU", resourceFit: 25, wait: "10 min", estSavings: 42000, timeSavedMin: 22 },
+  { id: "P-098", name: "T. Joshi", age: 5, sex: "M", condition: "Febrile Seizure", clinicalRisk: 70, scheme: "CGHS", policyMatch: 90, bed: "Pediatric ICU", resourceFit: 20, wait: "8 min", estSavings: 15000, timeSavedMin: 26 },
+  { id: "P-176", name: "M. Reddy", age: 71, sex: "M", condition: "Acute Renal Failure", clinicalRisk: 85, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 60, bed: "Dialysis Unit", resourceFit: 35, wait: "15 min", estSavings: 96000, timeSavedMin: 19 },
+  { id: "P-233", name: "S. Iyer", age: 8, sex: "F", condition: "Severe Pneumonia", clinicalRisk: 68, scheme: "CGHS", policyMatch: 95, bed: "Pediatric Ward", resourceFit: 80, wait: "22 min", estSavings: 8000, timeSavedMin: 8 },
+  { id: "P-150", name: "P. Nair", age: 58, sex: "F", condition: "Oncology — Chemo Cycle 3", clinicalRisk: 60, scheme: "State Health Scheme", policyMatch: 45, bed: "Day-Care Oncology", resourceFit: 50, wait: "35 min", estSavings: 54000, timeSavedMin: 5 },
+  { id: "P-087", name: "D. Singh", age: 34, sex: "M", condition: "Post-Op Ortho Trauma", clinicalRisk: 52, scheme: "ESIC", policyMatch: 70, bed: "Ortho Ward", resourceFit: 65, wait: "40 min", estSavings: 21000, timeSavedMin: 4 },
+  { id: "P-192", name: "K. Verma", age: 45, sex: "M", condition: "Diabetic Foot Ulcer", clinicalRisk: 40, scheme: "MediClaim+ (Private)", policyMatch: 55, bed: "General Ward", resourceFit: 90, wait: "1 hr 10 min", estSavings: 3000, timeSavedMin: 2 },
+];
+
+const EVENT_PATIENT_POOL = [
+  { name: "Incoming Trauma Case", age: 47, sex: "M", condition: "Multi-Trauma (RTA)", clinicalRisk: 96, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 82, bed: "Trauma ICU", resourceFit: 30, wait: "Just arrived", estSavings: 150000, timeSavedMin: 30 },
+  { name: "Incoming Cardiac Case", age: 55, sex: "F", condition: "Unstable Angina", clinicalRisk: 89, scheme: "CGHS", policyMatch: 87, bed: "Cardiac ICU", resourceFit: 28, wait: "Just arrived", estSavings: 132000, timeSavedMin: 27 },
 ];
 
 const priorityOf = (risk) => (risk >= 75 ? "critical" : risk >= 45 ? "moderate" : "stable");
@@ -26,28 +31,137 @@ function rationale(p, w) {
   return `Driven primarily by ${top.text}.`;
 }
 
+function formatRupees(n) {
+  if (n >= 100000) return `₹${(n / 100000).toFixed(2)}L`;
+  if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
+  return `₹${n}`;
+}
+
+// --- Insurance Navigator: mock data (all synthetic, no real patient/insurer data) ---
+const INSURANCE_PROFILE = {
+  patientName: "A. Fatima",
+  insurer: "Janani Suraksha Yojana (Govt. Scheme)",
+  policyType: "Maternity Cashless Benefit",
+  coverageLimit: 60000,
+  roomEligibility: ["General Ward", "Semi-Private"],
+  exclusions: ["Private Deluxe Room", "Cosmetic Procedures"],
+};
+
+const HOSPITALS = [
+  { name: "St. Mary's General Hospital", location: "Anna Nagar, Chennai", specialty: "Maternity & Neonatal Care", network: "In-Network", roomTypes: ["General Ward", "Semi-Private", "Private"], indicativeCost: 45000 },
+  { name: "Apex Multispecialty Hospital", location: "Adyar, Chennai", specialty: "Maternity, ICU", network: "In-Network", roomTypes: ["Semi-Private", "Private", "ICU"], indicativeCost: 68000 },
+  { name: "CarePlus Women's Hospital", location: "T. Nagar, Chennai", specialty: "Maternity Specialist Center", network: "Out-of-Network", roomTypes: ["Private", "Deluxe"], indicativeCost: 92000 },
+  { name: "Government General Hospital", location: "Egmore, Chennai", specialty: "General & Maternity", network: "In-Network", roomTypes: ["General Ward"], indicativeCost: 12000 },
+];
+
+function hospitalMatch(hospital) {
+  const roomOverlap = hospital.roomTypes.filter((r) => INSURANCE_PROFILE.roomEligibility.includes(r));
+  let score = hospital.network === "In-Network" ? 55 : 15;
+  score += Math.min(45, roomOverlap.length * 22);
+  score = Math.min(100, score);
+
+  let reason;
+  if (hospital.network === "In-Network" && roomOverlap.length > 0) {
+    reason = `In-network with ${roomOverlap.join(" & ")} covered under your policy — cashless settlement expected.`;
+  } else if (hospital.network === "In-Network") {
+    reason = `In-network, but available rooms (${hospital.roomTypes.join(", ")}) fall outside your covered categories — a co-pay may apply.`;
+  } else {
+    reason = `Out-of-network — this typically requires reimbursement rather than cashless settlement.`;
+  }
+  return { score, reason };
+}
+
+const JOURNEY_STAGES = [
+  { key: "admission", label: "Admission", guidance: "Your policy covers General Ward and Semi-Private rooms at in-network hospitals with cashless settlement. Choosing a Private or Deluxe room will require a daily co-pay difference." },
+  { key: "investigation", label: "Investigation", guidance: "Diagnostic tests during this phase are typically covered up to your policy's sub-limits. Keep original bills and reports for any reimbursement claims on out-of-network tests." },
+  { key: "procedure", label: "Procedure", guidance: "Standard procedure consumables and implants are covered under your maternity benefit. Premium or branded consumables may only be partially covered — check your policy's consumable annexure." },
+  { key: "recovery", label: "Recovery", guidance: "Post-procedure recovery days in your eligible room category continue to be cashless. A stay beyond the policy's day-limit may attract additional charges." },
+];
+
 export default function ConfluenceDashboard() {
+  const [activeTab, setActiveTab] = useState("ops");
+  const [journeyStage, setJourneyStage] = useState(0);
   const [weights, setWeights] = useState({ clinical: 45, policy: 30, resource: 25 });
   const [expandedId, setExpandedId] = useState("P-104");
   const [filter, setFilter] = useState("all");
 
+  // --- Add-on: live event simulation state ---
+  const [injected, setInjected] = useState([]);
+  const [resourceBoosts, setResourceBoosts] = useState({});
+  const [bedsFree, setBedsFree] = useState(14);
+  const [eventLog, setEventLog] = useState([]);
+  const [pulsing, setPulsing] = useState(false);
+  const injectedCounter = React.useRef(0);
+
   const totalW = weights.clinical + weights.policy + weights.resource;
 
+  const allPatients = useMemo(() => [...BASE_PATIENTS, ...injected], [injected]);
+
   const patients = useMemo(() => {
-    return BASE_PATIENTS.map((p) => {
-      const score = Math.round(
-        (p.clinicalRisk * weights.clinical + p.policyMatch * weights.policy + p.resourceFit * weights.resource) / totalW
-      );
-      return { ...p, score, priority: priorityOf(p.clinicalRisk) };
-    }).sort((a, b) => b.score - a.score);
-  }, [weights]);
+    return allPatients
+      .map((p) => {
+        const boostedResource = Math.min(100, p.resourceFit + (resourceBoosts[p.id] || 0));
+        const score = Math.round(
+          (p.clinicalRisk * weights.clinical + p.policyMatch * weights.policy + boostedResource * weights.resource) / totalW
+        );
+        return { ...p, resourceFit: boostedResource, score, priority: priorityOf(p.clinicalRisk) };
+      })
+      .sort((a, b) => b.score - a.score);
+  }, [allPatients, weights, resourceBoosts]);
 
   const visible = filter === "all" ? patients : patients.filter((p) => p.priority === filter);
 
-  const avgPolicyMatch = Math.round(BASE_PATIENTS.reduce((s, p) => s + p.policyMatch, 0) / BASE_PATIENTS.length);
-  const criticalCount = BASE_PATIENTS.filter((p) => priorityOf(p.clinicalRisk) === "critical").length;
+  const avgPolicyMatch = Math.round(allPatients.reduce((s, p) => s + p.policyMatch, 0) / allPatients.length);
+  const criticalCount = allPatients.filter((p) => priorityOf(p.clinicalRisk) === "critical").length;
+
+  // --- Add-on: impact/outcome counter, derived from mock savings + time-saved fields ---
+  const totalCostSaved = allPatients.reduce((s, p) => s + p.estSavings, 0);
+  const totalTimeSavedMin = allPatients.reduce((s, p) => s + p.timeSavedMin, 0);
+  const optimallyMatchedCount = allPatients.filter((p) => p.policyMatch >= 70).length;
 
   const setW = (key, val) => setWeights((prev) => ({ ...prev, [key]: val }));
+
+  const triggerPulse = () => {
+    setPulsing(true);
+    setTimeout(() => setPulsing(false), 900);
+  };
+
+  const addLog = (text) => {
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setEventLog((prev) => [{ time, text }, ...prev].slice(0, 6));
+  };
+
+  const simulateCriticalArrival = () => {
+    const template = EVENT_PATIENT_POOL[injectedCounter.current % EVENT_PATIENT_POOL.length];
+    injectedCounter.current += 1;
+    const newPatient = { ...template, id: `P-3${String(injectedCounter.current).padStart(2, "0")}` };
+    setInjected((prev) => [...prev, newPatient]);
+    addLog(`New critical patient ${newPatient.id} entered the queue — ${newPatient.condition}. Queue re-optimized.`);
+    triggerPulse();
+  };
+
+  const simulateBedFreed = () => {
+    setBedsFree((prev) => prev + 1);
+    setResourceBoosts((prev) => {
+      const next = { ...prev };
+      allPatients.forEach((p) => {
+        if (p.bed.toLowerCase().includes("icu")) {
+          next[p.id] = Math.min(60, (next[p.id] || 0) + 15);
+        }
+      });
+      return next;
+    });
+    addLog(`ICU bed freed — resource fit recalculated for ICU-bound patients. Queue re-optimized.`);
+    triggerPulse();
+  };
+
+  const resetSimulation = () => {
+    setInjected([]);
+    setResourceBoosts({});
+    setBedsFree(14);
+    setEventLog([]);
+    injectedCounter.current = 0;
+  };
 
   return (
     <div className="confluence-root">
@@ -210,8 +324,144 @@ export default function ConfluenceDashboard() {
 
         .legend { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
         .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+
+        .impact-banner { display: flex; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+        .impact-card {
+          flex: 1; min-width: 170px;
+          background: linear-gradient(135deg, rgba(240,180,41,0.08), rgba(240,180,41,0.02));
+          border: 1px solid rgba(240,180,41,0.35);
+          border-radius: 12px;
+          padding: 14px 16px;
+        }
+        .impact-label {
+          font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px;
+          color: var(--muted); display: flex; align-items: center; gap: 6px;
+        }
+        .impact-value {
+          font-size: 22px; font-weight: 700; color: var(--gold); margin-top: 6px;
+          font-family: 'IBM Plex Mono', monospace;
+        }
+        .impact-sub { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+
+        .events-block { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .reopt-tag {
+          margin-left: auto; font-size: 10px; font-weight: 600; color: var(--policy);
+          background: rgba(62,142,247,0.12); padding: 2px 8px; border-radius: 20px;
+        }
+        .events-block .sidebar-title { justify-content: flex-start; }
+
+        .event-btn {
+          width: 100%; background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+          font-size: 11.5px; padding: 9px 11px; border-radius: 8px; cursor: pointer;
+          margin-bottom: 8px; text-align: left; display: flex; align-items: center; gap: 8px;
+          font-family: inherit; transition: border-color 0.15s ease;
+        }
+        .event-btn:hover { border-color: var(--policy); }
+        .event-btn.reset { color: var(--muted); }
+
+        .event-log { margin-top: 10px; display: flex; flex-direction: column; gap: 7px; max-height: 160px; overflow-y: auto; }
+        .event-log-item { font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+        .event-log-time {
+          font-family: 'IBM Plex Mono', monospace; color: var(--stable);
+          margin-right: 6px; white-space: nowrap;
+        }
+
+        @keyframes pulseGlow {
+          0% { box-shadow: 0 0 0 0 rgba(62,142,247,0); }
+          40% { box-shadow: 0 0 0 3px rgba(62,142,247,0.3); }
+          100% { box-shadow: 0 0 0 0 rgba(62,142,247,0); }
+        }
+        .queue.pulsing .card { animation: pulseGlow 0.9s ease; }
+
+        .tab-switch { display: flex; gap: 8px; margin-bottom: 22px; }
+        .tab-btn {
+          font-family: inherit; font-size: 12.5px; font-weight: 600;
+          padding: 8px 16px; border-radius: 20px; cursor: pointer;
+          background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+        }
+        .tab-btn.active { background: var(--policy); border-color: var(--policy); color: #fff; }
+
+        .panel-like { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+
+        .nav-header { padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+
+        .disclaimer-banner {
+          display: flex; align-items: flex-start; gap: 10px;
+          background: rgba(79,201,224,0.08); border: 1px solid rgba(79,201,224,0.3);
+          border-radius: 10px; padding: 11px 14px; margin-bottom: 18px;
+          font-size: 12px; color: var(--muted); line-height: 1.5;
+        }
+        .disclaimer-banner svg { color: var(--clinical); flex-shrink: 0; margin-top: 1px; }
+
+        .nav-grid { display: grid; grid-template-columns: 300px 1fr; gap: 16px; margin-bottom: 16px; }
+        @media (max-width: 760px) { .nav-grid { grid-template-columns: 1fr; } }
+
+        .ins-row {
+          display: flex; justify-content: space-between; gap: 14px;
+          padding: 9px 0; border-bottom: 1px dashed var(--border);
+          font-size: 12px; color: var(--muted);
+        }
+        .ins-row:last-child { border-bottom: none; }
+        .ins-row b { color: var(--text); font-weight: 600; text-align: right; }
+        .ins-row b.exclusion-text { color: var(--critical); }
+
+        .hospital-list { display: flex; flex-direction: column; gap: 10px; }
+        .hospital-card { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+        .hospital-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .hospital-name { font-size: 13.5px; font-weight: 600; }
+        .hospital-meta { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+        .network-badge {
+          font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 20px;
+          white-space: nowrap; border: 1px solid;
+        }
+        .network-badge.in { color: var(--stable); border-color: var(--stable); background: rgba(53,210,138,0.1); }
+        .network-badge.out { color: var(--critical); border-color: var(--critical); background: rgba(240,85,95,0.1); }
+
+        .hospital-rooms { display: flex; gap: 6px; flex-wrap: wrap; margin: 9px 0; }
+        .room-chip {
+          font-size: 10.5px; padding: 3px 9px; border-radius: 6px;
+          background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+        }
+        .room-chip.eligible { color: var(--gold); border-color: rgba(240,180,41,0.4); background: rgba(240,180,41,0.08); }
+
+        .hospital-foot { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text); margin-bottom: 6px; }
+        .hospital-foot span { display: flex; align-items: center; gap: 4px; }
+        .hospital-cost { color: var(--muted); }
+        .hospital-reason { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
+        .journey-panel { margin-top: 4px; }
+        .stage-track { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 16px 0; }
+        .stage-btn {
+          font-family: inherit; font-size: 12px; font-weight: 500;
+          display: flex; align-items: center; gap: 8px;
+          padding: 8px 14px; border-radius: 8px; cursor: pointer;
+          background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
+        }
+        .stage-btn .stage-index {
+          width: 18px; height: 18px; border-radius: 50%; background: var(--border);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+        }
+        .stage-btn.active { border-color: var(--policy); color: var(--text); }
+        .stage-btn.active .stage-index { background: var(--policy); color: #fff; }
+        .stage-btn.done .stage-index { background: var(--stable); color: #06251a; }
+
+        .stage-panel { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+        .stage-title { font-size: 12.5px; font-weight: 600; color: var(--gold); margin-bottom: 6px; }
+        .stage-guidance { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
       `}</style>
 
+      <div className="tab-switch">
+        <button className={"tab-btn" + (activeTab === "ops" ? " active" : "")} onClick={() => setActiveTab("ops")}>
+          Admission Ops
+        </button>
+        <button className={"tab-btn" + (activeTab === "navigator" ? " active" : "")} onClick={() => setActiveTab("navigator")}>
+          Insurance Navigator
+        </button>
+      </div>
+
+      {activeTab === "ops" && (
+      <>
       <div className="header">
         <div className="brand">
           <div className="brand-mark">
@@ -225,11 +475,11 @@ export default function ConfluenceDashboard() {
         <div className="stats">
           <div className="stat">
             <div className="stat-label">Beds Free</div>
-            <div className="stat-value mono">14</div>
+            <div className="stat-value mono">{bedsFree}</div>
           </div>
           <div className="stat">
             <div className="stat-label">In Queue</div>
-            <div className="stat-value mono">{BASE_PATIENTS.length}</div>
+            <div className="stat-value mono">{allPatients.length}</div>
           </div>
           <div className="stat">
             <div className="stat-label">Critical</div>
@@ -242,6 +492,24 @@ export default function ConfluenceDashboard() {
         </div>
       </div>
 
+      <div className="impact-banner">
+        <div className="impact-card">
+          <div className="impact-label"><IndianRupee size={12} /> Est. Cost Saved</div>
+          <div className="impact-value">{formatRupees(totalCostSaved)}</div>
+          <div className="impact-sub">via optimal scheme matching, this session</div>
+        </div>
+        <div className="impact-card">
+          <div className="impact-label"><Timer size={12} /> Wait Time Reduced</div>
+          <div className="impact-value">{(totalTimeSavedMin / 60).toFixed(1)} hrs</div>
+          <div className="impact-sub">vs. a first-come-first-served queue</div>
+        </div>
+        <div className="impact-card">
+          <div className="impact-label"><Users2 size={12} /> Optimally Matched</div>
+          <div className="impact-value">{optimallyMatchedCount}/{allPatients.length}</div>
+          <div className="impact-sub">patients at ≥70% policy eligibility</div>
+        </div>
+      </div>
+
       <div className="layout">
         <div className="sidebar">
           <div className="sidebar-title"><SlidersHorizontal size={14} /> Optimization Weights</div>
@@ -249,21 +517,21 @@ export default function ConfluenceDashboard() {
 
           <div className="weight-row">
             <div className="weight-label">
-              <span className="weight-name"><span className="dot" style={{ background: "var(--clinical)" }} /> Clinical</span>
+              <span className="weight-name"><span className="dot" style={{ background: "var(--clinical)" }} /> Clinical Risk</span>
               <span className="mono">{weights.clinical}</span>
             </div>
             <input type="range" min="5" max="80" value={weights.clinical} onChange={(e) => setW("clinical", +e.target.value)} />
           </div>
           <div className="weight-row">
             <div className="weight-label">
-              <span className="weight-name"><span className="dot" style={{ background: "var(--policy)" }} /> Policy</span>
+              <span className="weight-name"><span className="dot" style={{ background: "var(--policy)" }} /> Policy Match</span>
               <span className="mono">{weights.policy}</span>
             </div>
             <input type="range" min="5" max="80" value={weights.policy} onChange={(e) => setW("policy", +e.target.value)} />
           </div>
           <div className="weight-row">
             <div className="weight-label">
-              <span className="weight-name"><span className="dot" style={{ background: "var(--resource)" }} /> Resource</span>
+              <span className="weight-name"><span className="dot" style={{ background: "var(--resource)" }} /> Availability of Resource</span>
               <span className="mono">{weights.resource}</span>
             </div>
             <input type="range" min="5" max="80" value={weights.resource} onChange={(e) => setW("resource", +e.target.value)} />
@@ -276,9 +544,38 @@ export default function ConfluenceDashboard() {
               </button>
             ))}
           </div>
+
+          <div className="events-block">
+            <div className="sidebar-title">
+              <Activity size={14} /> Live Events
+              {pulsing && <span className="reopt-tag">Re-optimizing…</span>}
+            </div>
+            <div className="sidebar-sub">Simulate real-time changes to the queue.</div>
+
+            <button className="event-btn" onClick={simulateCriticalArrival}>
+              <Zap size={13} color="var(--critical)" /> Critical patient arrives
+            </button>
+            <button className="event-btn" onClick={simulateBedFreed}>
+              <BedDouble size={13} color="var(--stable)" /> ICU bed freed
+            </button>
+            <button className="event-btn reset" onClick={resetSimulation}>
+              <RotateCcw size={13} /> Reset simulation
+            </button>
+
+            {eventLog.length > 0 && (
+              <div className="event-log">
+                {eventLog.map((e, idx) => (
+                  <div className="event-log-item" key={idx}>
+                    <span className="event-log-time">{e.time}</span>
+                    <span>{e.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="queue">
+        <div className={"queue" + (pulsing ? " pulsing" : "")}>
           {visible.map((p, i) => {
             const isOpen = expandedId === p.id;
             const pc = priorityColor[p.priority];
@@ -353,6 +650,87 @@ export default function ConfluenceDashboard() {
           })}
         </div>
       </div>
+      </>
+      )}
+
+      {activeTab === "navigator" && (
+        <div className="navigator">
+          <div className="nav-header">
+            <div className="brand">
+              <div className="brand-mark"><Sparkles size={18} color="#0a0f16" /></div>
+              <div>
+                <div className="title display">CONFLUENCE</div>
+                <div className="subtitle">Insurance Navigator — for {INSURANCE_PROFILE.patientName} &amp; caregivers</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="disclaimer-banner">
+            <Info size={14} />
+            <span>Decision-support information only — not a medical diagnosis or a binding insurance guarantee. Always confirm final coverage details with your insurer and hospital.</span>
+          </div>
+
+          <div className="nav-grid">
+            <div className="panel-like insurance-card">
+              <div className="sidebar-title"><ShieldCheck size={14} /> Insurance Summary</div>
+              <div className="ins-row"><span>Insurer</span><b>{INSURANCE_PROFILE.insurer}</b></div>
+              <div className="ins-row"><span>Policy Type</span><b>{INSURANCE_PROFILE.policyType}</b></div>
+              <div className="ins-row"><span>Coverage Limit</span><b className="mono">{formatRupees(INSURANCE_PROFILE.coverageLimit)}</b></div>
+              <div className="ins-row"><span>Room Eligibility</span><b>{INSURANCE_PROFILE.roomEligibility.join(", ")}</b></div>
+              <div className="ins-row"><span>Exclusions</span><b className="exclusion-text">{INSURANCE_PROFILE.exclusions.join(", ")}</b></div>
+            </div>
+
+            <div className="panel-like hospital-panel">
+              <div className="sidebar-title"><Building2 size={14} /> Suggested Hospitals &amp; Rooms</div>
+              <div className="hospital-list">
+                {HOSPITALS.map((h) => {
+                  const m = hospitalMatch(h);
+                  return (
+                    <div className="hospital-card" key={h.name}>
+                      <div className="hospital-head">
+                        <div>
+                          <div className="hospital-name">{h.name}</div>
+                          <div className="hospital-meta"><MapPin size={11} /> {h.location} · {h.specialty}</div>
+                        </div>
+                        <span className={"network-badge " + (h.network === "In-Network" ? "in" : "out")}>{h.network}</span>
+                      </div>
+                      <div className="hospital-rooms">
+                        {h.roomTypes.map((r) => (
+                          <span key={r} className={"room-chip" + (INSURANCE_PROFILE.roomEligibility.includes(r) ? " eligible" : "")}>{r}</span>
+                        ))}
+                      </div>
+                      <div className="hospital-foot">
+                        <span className="mono"><Percent size={11} /> {m.score}% match</span>
+                        <span className="hospital-cost mono">~{formatRupees(h.indicativeCost)}</span>
+                      </div>
+                      <div className="hospital-reason">{m.reason}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="panel-like journey-panel">
+            <div className="sidebar-title"><ListChecks size={14} /> Care Journey</div>
+            <div className="stage-track">
+              {JOURNEY_STAGES.map((s, idx) => (
+                <button
+                  key={s.key}
+                  className={"stage-btn" + (idx === journeyStage ? " active" : "") + (idx < journeyStage ? " done" : "")}
+                  onClick={() => setJourneyStage(idx)}
+                >
+                  <span className="stage-index">{idx + 1}</span> {s.label}
+                </button>
+              ))}
+            </div>
+            <div className="stage-panel">
+              <div className="stage-title">{JOURNEY_STAGES[journeyStage].label} — Insurance Guidance</div>
+              <div className="stage-guidance">{JOURNEY_STAGES[journeyStage].guidance}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
