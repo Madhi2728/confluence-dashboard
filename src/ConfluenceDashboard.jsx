@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks } from "lucide-react";
+import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight } from "lucide-react";
 
 const BASE_PATIENTS = [
   { id: "P-104", name: "R. Sharma", age: 62, sex: "M", condition: "Acute Myocardial Infarction", clinicalRisk: 92, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 88, bed: "Cardiac ICU", resourceFit: 40, wait: "6 min", estSavings: 185000, timeSavedMin: 34 },
@@ -38,7 +38,7 @@ function formatRupees(n) {
 }
 
 // --- Insurance Navigator: mock data (all synthetic, no real patient/insurer data) ---
-const INSURANCE_PROFILE = {
+const DEFAULT_INSURANCE_PROFILE = {
   patientName: "A. Fatima",
   insurer: "Janani Suraksha Yojana (Govt. Scheme)",
   policyType: "Maternity Cashless Benefit",
@@ -47,6 +47,16 @@ const INSURANCE_PROFILE = {
   exclusions: ["Private Deluxe Room", "Cosmetic Procedures"],
 };
 
+const INSURER_OPTIONS = [
+  "Janani Suraksha Yojana (Govt. Scheme)",
+  "Ayushman Bharat (PM-JAY)",
+  "CGHS",
+  "ESIC",
+  "MediClaim+ (Private)",
+];
+
+const ROOM_OPTIONS = ["General Ward", "Semi-Private", "Private", "Deluxe", "ICU"];
+
 const HOSPITALS = [
   { name: "St. Mary's General Hospital", location: "Anna Nagar, Chennai", specialty: "Maternity & Neonatal Care", network: "In-Network", roomTypes: ["General Ward", "Semi-Private", "Private"], indicativeCost: 45000 },
   { name: "Apex Multispecialty Hospital", location: "Adyar, Chennai", specialty: "Maternity, ICU", network: "In-Network", roomTypes: ["Semi-Private", "Private", "ICU"], indicativeCost: 68000 },
@@ -54,8 +64,8 @@ const HOSPITALS = [
   { name: "Government General Hospital", location: "Egmore, Chennai", specialty: "General & Maternity", network: "In-Network", roomTypes: ["General Ward"], indicativeCost: 12000 },
 ];
 
-function hospitalMatch(hospital) {
-  const roomOverlap = hospital.roomTypes.filter((r) => INSURANCE_PROFILE.roomEligibility.includes(r));
+function hospitalMatch(hospital, profile) {
+  const roomOverlap = hospital.roomTypes.filter((r) => profile.roomEligibility.includes(r));
   let score = hospital.network === "In-Network" ? 55 : 15;
   score += Math.min(45, roomOverlap.length * 22);
   score = Math.min(100, score);
@@ -72,15 +82,51 @@ function hospitalMatch(hospital) {
 }
 
 const JOURNEY_STAGES = [
-  { key: "admission", label: "Admission", guidance: "Your policy covers General Ward and Semi-Private rooms at in-network hospitals with cashless settlement. Choosing a Private or Deluxe room will require a daily co-pay difference." },
-  { key: "investigation", label: "Investigation", guidance: "Diagnostic tests during this phase are typically covered up to your policy's sub-limits. Keep original bills and reports for any reimbursement claims on out-of-network tests." },
-  { key: "procedure", label: "Procedure", guidance: "Standard procedure consumables and implants are covered under your maternity benefit. Premium or branded consumables may only be partially covered — check your policy's consumable annexure." },
-  { key: "recovery", label: "Recovery", guidance: "Post-procedure recovery days in your eligible room category continue to be cashless. A stay beyond the policy's day-limit may attract additional charges." },
+  {
+    key: "admission",
+    label: "Admission",
+    guidance: "Your policy covers General Ward and Semi-Private rooms at in-network hospitals with cashless settlement. Choosing a Private or Deluxe room will require a daily co-pay difference.",
+    alternatives: [
+      { title: "Upgrade to Private Room", detail: "Approx. ₹1,800/day extra co-pay beyond your covered room category." },
+      { title: "Downgrade to General Ward", detail: "Fully cashless under your policy — zero extra cost." },
+      { title: "Transfer to another in-network hospital", detail: "If your preferred room type is unavailable here, other in-network hospitals nearby may have capacity today." },
+    ],
+  },
+  {
+    key: "investigation",
+    label: "Investigation",
+    guidance: "Diagnostic tests during this phase are typically covered up to your policy's sub-limits. Keep original bills and reports for any reimbursement claims on out-of-network tests.",
+    alternatives: [
+      { title: "In-hospital diagnostic package", detail: "Covered under your policy sub-limit, cashless." },
+      { title: "Out-of-network lab tests", detail: "Requires a reimbursement claim — retain original bills and reports." },
+    ],
+  },
+  {
+    key: "procedure",
+    label: "Procedure",
+    guidance: "Standard procedure consumables and implants are covered under your maternity benefit. Premium or branded consumables may only be partially covered — check your policy's consumable annexure.",
+    alternatives: [
+      { title: "Standard consumables", detail: "Fully covered, cashless settlement." },
+      { title: "Premium/branded consumables", detail: "Partial coverage only — check the annexure for your co-pay percentage." },
+    ],
+  },
+  {
+    key: "recovery",
+    label: "Recovery",
+    guidance: "Post-procedure recovery days in your eligible room category continue to be cashless. A stay beyond the policy's day-limit may attract additional charges.",
+    alternatives: [
+      { title: "Extended stay beyond day-limit", detail: "Additional per-day charges apply once your policy's covered duration is exceeded." },
+      { title: "Early discharge with home care", detail: "May reduce room-cost exposure — check whether your policy includes a home-care rider." },
+    ],
+  },
 ];
 
 export default function ConfluenceDashboard() {
   const [activeTab, setActiveTab] = useState("ops");
   const [journeyStage, setJourneyStage] = useState(0);
+  const [insurance, setInsurance] = useState(DEFAULT_INSURANCE_PROFILE);
+  const [editingInsurance, setEditingInsurance] = useState(false);
+  const [draftInsurance, setDraftInsurance] = useState(DEFAULT_INSURANCE_PROFILE);
   const [weights, setWeights] = useState({ clinical: 45, policy: 30, resource: 25 });
   const [expandedId, setExpandedId] = useState("P-104");
   const [filter, setFilter] = useState("all");
@@ -161,6 +207,29 @@ export default function ConfluenceDashboard() {
     setBedsFree(14);
     setEventLog([]);
     injectedCounter.current = 0;
+  };
+
+  // --- Add-on: editable insurance ingestion (user can input/update their policy details) ---
+  const startEditingInsurance = () => {
+    setDraftInsurance(insurance);
+    setEditingInsurance(true);
+  };
+
+  const toggleDraftRoom = (room) => {
+    setDraftInsurance((prev) => {
+      const has = prev.roomEligibility.includes(room);
+      const roomEligibility = has ? prev.roomEligibility.filter((r) => r !== room) : [...prev.roomEligibility, room];
+      return { ...prev, roomEligibility };
+    });
+  };
+
+  const saveInsuranceEdits = () => {
+    setInsurance(draftInsurance);
+    setEditingInsurance(false);
+  };
+
+  const cancelInsuranceEdits = () => {
+    setEditingInsurance(false);
   };
 
   return (
@@ -449,6 +518,57 @@ export default function ConfluenceDashboard() {
         .stage-panel { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
         .stage-title { font-size: 12.5px; font-weight: 600; color: var(--gold); margin-bottom: 6px; }
         .stage-guidance { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+        .key-takeaway {
+          display: flex; align-items: flex-start; gap: 10px;
+          background: rgba(240,180,41,0.08); border: 1px solid rgba(240,180,41,0.35);
+          border-radius: 10px; padding: 13px 15px; margin-bottom: 16px;
+          font-size: 13px; color: var(--text); line-height: 1.55;
+        }
+        .key-takeaway svg { color: var(--gold); flex-shrink: 0; margin-top: 2px; }
+        .key-takeaway b { color: var(--gold); }
+
+        .stage-btn-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.3; }
+        .stage-btn-label { font-size: 12px; }
+        .stage-btn-status { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+        .stage-btn.active .stage-btn-status { color: var(--policy); }
+        .stage-btn.done .stage-btn-status { color: var(--stable); }
+
+        .edit-link {
+          margin-left: auto; font-family: inherit; font-size: 10.5px; font-weight: 600;
+          color: var(--policy); background: transparent; border: none; cursor: pointer;
+          text-decoration: underline;
+        }
+        .ins-form { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+        .ins-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin-top: 8px; }
+        .ins-input {
+          background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+          font-family: inherit; font-size: 12px; padding: 7px 9px; border-radius: 7px; width: 100%;
+        }
+        .room-check-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+        .room-check {
+          display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted);
+          background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; cursor: pointer;
+        }
+        .room-check.checked { color: var(--gold); border-color: rgba(240,180,41,0.4); background: rgba(240,180,41,0.08); }
+        .room-check input { accent-color: var(--gold); }
+        .ins-form-actions { display: flex; gap: 8px; margin-top: 14px; }
+        .ins-save-btn, .ins-cancel-btn {
+          font-family: inherit; font-size: 12px; font-weight: 600; padding: 8px 16px;
+          border-radius: 8px; cursor: pointer; border: 1px solid var(--border);
+        }
+        .ins-save-btn { background: var(--policy); border-color: var(--policy); color: #fff; }
+        .ins-cancel-btn { background: transparent; color: var(--muted); }
+
+        .alt-title {
+          display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600;
+          color: var(--resource); text-transform: uppercase; letter-spacing: 0.4px;
+          margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border);
+        }
+        .alt-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .alt-item { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; }
+        .alt-item-title { font-size: 12px; font-weight: 600; color: var(--text); }
+        .alt-item-detail { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
       `}</style>
 
       <div className="tab-switch">
@@ -660,7 +780,7 @@ export default function ConfluenceDashboard() {
               <div className="brand-mark"><Sparkles size={18} color="#0a0f16" /></div>
               <div>
                 <div className="title display">CONFLUENCE</div>
-                <div className="subtitle">Insurance Navigator — for {INSURANCE_PROFILE.patientName} &amp; caregivers</div>
+                <div className="subtitle">Insurance Navigator — for {insurance.patientName} &amp; caregivers</div>
               </div>
             </div>
           </div>
@@ -670,21 +790,95 @@ export default function ConfluenceDashboard() {
             <span>Decision-support information only — not a medical diagnosis or a binding insurance guarantee. Always confirm final coverage details with your insurer and hospital.</span>
           </div>
 
+          <div className="key-takeaway">
+            <ShieldCheck size={16} />
+            <span>
+              You're covered up to <b>{formatRupees(insurance.coverageLimit)}</b> for a{" "}
+              <b>{insurance.roomEligibility.join(" or ")}</b> room. Choosing {insurance.exclusions.join(" or ")} will likely mean extra out-of-pocket cost.
+            </span>
+          </div>
+
           <div className="nav-grid">
             <div className="panel-like insurance-card">
-              <div className="sidebar-title"><ShieldCheck size={14} /> Insurance Summary</div>
-              <div className="ins-row"><span>Insurer</span><b>{INSURANCE_PROFILE.insurer}</b></div>
-              <div className="ins-row"><span>Policy Type</span><b>{INSURANCE_PROFILE.policyType}</b></div>
-              <div className="ins-row"><span>Coverage Limit</span><b className="mono">{formatRupees(INSURANCE_PROFILE.coverageLimit)}</b></div>
-              <div className="ins-row"><span>Room Eligibility</span><b>{INSURANCE_PROFILE.roomEligibility.join(", ")}</b></div>
-              <div className="ins-row"><span>Exclusions</span><b className="exclusion-text">{INSURANCE_PROFILE.exclusions.join(", ")}</b></div>
+              <div className="sidebar-title">
+                <ShieldCheck size={14} /> Insurance Summary
+                {!editingInsurance && (
+                  <button className="edit-link" onClick={startEditingInsurance}>Edit / Update</button>
+                )}
+              </div>
+
+              {!editingInsurance ? (
+                <>
+                  <div className="ins-row"><span>Insurer</span><b>{insurance.insurer}</b></div>
+                  <div className="ins-row"><span>Policy Type</span><b>{insurance.policyType}</b></div>
+                  <div className="ins-row"><span>Coverage Limit</span><b className="mono">{formatRupees(insurance.coverageLimit)}</b></div>
+                  <div className="ins-row"><span>Room Eligibility</span><b>{insurance.roomEligibility.join(", ") || "—"}</b></div>
+                  <div className="ins-row"><span>Exclusions</span><b className="exclusion-text">{insurance.exclusions.join(", ")}</b></div>
+                </>
+              ) : (
+                <div className="ins-form">
+                  <label className="ins-label">Insurer / Scheme</label>
+                  <select
+                    className="ins-input"
+                    value={draftInsurance.insurer}
+                    onChange={(e) => setDraftInsurance((p) => ({ ...p, insurer: e.target.value }))}
+                  >
+                    {INSURER_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+
+                  <label className="ins-label">Policy Type</label>
+                  <input
+                    className="ins-input"
+                    type="text"
+                    value={draftInsurance.policyType}
+                    onChange={(e) => setDraftInsurance((p) => ({ ...p, policyType: e.target.value }))}
+                  />
+
+                  <label className="ins-label">Coverage Limit (₹)</label>
+                  <input
+                    className="ins-input"
+                    type="number"
+                    value={draftInsurance.coverageLimit}
+                    onChange={(e) => setDraftInsurance((p) => ({ ...p, coverageLimit: Number(e.target.value) || 0 }))}
+                  />
+
+                  <label className="ins-label">Room Eligibility</label>
+                  <div className="room-check-group">
+                    {ROOM_OPTIONS.map((room) => (
+                      <label key={room} className={"room-check" + (draftInsurance.roomEligibility.includes(room) ? " checked" : "")}>
+                        <input
+                          type="checkbox"
+                          checked={draftInsurance.roomEligibility.includes(room)}
+                          onChange={() => toggleDraftRoom(room)}
+                        />
+                        {room}
+                      </label>
+                    ))}
+                  </div>
+
+                  <label className="ins-label">Exclusions (comma-separated)</label>
+                  <input
+                    className="ins-input"
+                    type="text"
+                    value={draftInsurance.exclusions.join(", ")}
+                    onChange={(e) => setDraftInsurance((p) => ({ ...p, exclusions: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) }))}
+                  />
+
+                  <div className="ins-form-actions">
+                    <button className="ins-save-btn" onClick={saveInsuranceEdits}>Save</button>
+                    <button className="ins-cancel-btn" onClick={cancelInsuranceEdits}>Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="panel-like hospital-panel">
               <div className="sidebar-title"><Building2 size={14} /> Suggested Hospitals &amp; Rooms</div>
               <div className="hospital-list">
                 {HOSPITALS.map((h) => {
-                  const m = hospitalMatch(h);
+                  const m = hospitalMatch(h, insurance);
                   return (
                     <div className="hospital-card" key={h.name}>
                       <div className="hospital-head">
@@ -696,7 +890,7 @@ export default function ConfluenceDashboard() {
                       </div>
                       <div className="hospital-rooms">
                         {h.roomTypes.map((r) => (
-                          <span key={r} className={"room-chip" + (INSURANCE_PROFILE.roomEligibility.includes(r) ? " eligible" : "")}>{r}</span>
+                          <span key={r} className={"room-chip" + (insurance.roomEligibility.includes(r) ? " eligible" : "")}>{r}</span>
                         ))}
                       </div>
                       <div className="hospital-foot">
@@ -714,19 +908,36 @@ export default function ConfluenceDashboard() {
           <div className="panel-like journey-panel">
             <div className="sidebar-title"><ListChecks size={14} /> Care Journey</div>
             <div className="stage-track">
-              {JOURNEY_STAGES.map((s, idx) => (
-                <button
-                  key={s.key}
-                  className={"stage-btn" + (idx === journeyStage ? " active" : "") + (idx < journeyStage ? " done" : "")}
-                  onClick={() => setJourneyStage(idx)}
-                >
-                  <span className="stage-index">{idx + 1}</span> {s.label}
-                </button>
-              ))}
+              {JOURNEY_STAGES.map((s, idx) => {
+                const status = idx < journeyStage ? "Completed" : idx === journeyStage ? "Current" : "Upcoming";
+                return (
+                  <button
+                    key={s.key}
+                    className={"stage-btn" + (idx === journeyStage ? " active" : "") + (idx < journeyStage ? " done" : "")}
+                    onClick={() => setJourneyStage(idx)}
+                  >
+                    <span className="stage-index">{idx + 1}</span>
+                    <span className="stage-btn-text">
+                      <span className="stage-btn-label">{s.label}</span>
+                      <span className="stage-btn-status">{status}</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <div className="stage-panel">
               <div className="stage-title">{JOURNEY_STAGES[journeyStage].label} — Insurance Guidance</div>
               <div className="stage-guidance">{JOURNEY_STAGES[journeyStage].guidance}</div>
+
+              <div className="alt-title"><ArrowLeftRight size={12} /> Possible Alternatives</div>
+              <div className="alt-list">
+                {JOURNEY_STAGES[journeyStage].alternatives.map((a, i) => (
+                  <div className="alt-item" key={i}>
+                    <div className="alt-item-title">{a.title}</div>
+                    <div className="alt-item-detail">{a.detail}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
