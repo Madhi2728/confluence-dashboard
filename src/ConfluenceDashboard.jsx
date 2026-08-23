@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight } from "lucide-react";
 
 const BASE_PATIENTS = [
@@ -38,14 +38,19 @@ function formatRupees(n) {
 }
 
 // --- Insurance Navigator: mock data (all synthetic, no real patient/insurer data) ---
-const DEFAULT_INSURANCE_PROFILE = {
-  patientName: "A. Fatima",
-  insurer: "Janani Suraksha Yojana (Govt. Scheme)",
-  policyType: "Maternity Cashless Benefit",
-  coverageLimit: 60000,
-  roomEligibility: ["General Ward", "Semi-Private"],
-  exclusions: ["Private Deluxe Room", "Cosmetic Procedures"],
+const SCHEME_TEMPLATES = {
+  "Ayushman Bharat (PM-JAY)": { policyType: "Government Health Assurance", coverageLimit: 500000, roomEligibility: ["General Ward", "Semi-Private"], exclusions: ["Private Deluxe Room", "Cosmetic Procedures"] },
+  "Janani Suraksha Yojana": { policyType: "Maternity Cashless Benefit", coverageLimit: 60000, roomEligibility: ["General Ward", "Semi-Private"], exclusions: ["Private Deluxe Room", "Cosmetic Procedures"] },
+  "CGHS": { policyType: "Central Govt. Employee Health Scheme", coverageLimit: 300000, roomEligibility: ["General Ward", "Semi-Private", "Private"], exclusions: ["Deluxe Suite", "Cosmetic Procedures"] },
+  "ESIC": { policyType: "Employee State Insurance", coverageLimit: 150000, roomEligibility: ["General Ward"], exclusions: ["Private Room", "Cosmetic Procedures"] },
+  "MediClaim+ (Private)": { policyType: "Private Health Indemnity Plan", coverageLimit: 200000, roomEligibility: ["Semi-Private", "Private"], exclusions: ["Deluxe Suite", "Elective Cosmetic Procedures"] },
+  "State Health Scheme": { policyType: "State Govt. Health Assurance", coverageLimit: 100000, roomEligibility: ["General Ward", "Semi-Private"], exclusions: ["Private Room", "Cosmetic Procedures"] },
 };
+
+function buildInsuranceFromPatient(patient) {
+  const template = SCHEME_TEMPLATES[patient.scheme] || SCHEME_TEMPLATES["MediClaim+ (Private)"];
+  return { patientName: patient.name, insurer: patient.scheme, ...template };
+}
 
 const INSURER_OPTIONS = [
   "Janani Suraksha Yojana (Govt. Scheme)",
@@ -124,9 +129,10 @@ const JOURNEY_STAGES = [
 export default function ConfluenceDashboard() {
   const [activeTab, setActiveTab] = useState("ops");
   const [journeyStage, setJourneyStage] = useState(0);
-  const [insurance, setInsurance] = useState(DEFAULT_INSURANCE_PROFILE);
+  const [selectedPatientId, setSelectedPatientId] = useState(BASE_PATIENTS[0].id);
+  const [insurance, setInsurance] = useState(() => buildInsuranceFromPatient(BASE_PATIENTS[0]));
   const [editingInsurance, setEditingInsurance] = useState(false);
-  const [draftInsurance, setDraftInsurance] = useState(DEFAULT_INSURANCE_PROFILE);
+  const [draftInsurance, setDraftInsurance] = useState(() => buildInsuranceFromPatient(BASE_PATIENTS[0]));
   const [weights, setWeights] = useState({ clinical: 45, policy: 30, resource: 25 });
   const [expandedId, setExpandedId] = useState("P-104");
   const [filter, setFilter] = useState("all");
@@ -142,6 +148,28 @@ export default function ConfluenceDashboard() {
   const totalW = weights.clinical + weights.policy + weights.resource;
 
   const allPatients = useMemo(() => [...BASE_PATIENTS, ...injected], [injected]);
+
+  useEffect(() => {
+    if (activeTab === "navigator") {
+      const target = allPatients.find((p) => p.id === expandedId) || allPatients.find((p) => p.id === selectedPatientId) || allPatients[0];
+      if (target) {
+        setSelectedPatientId(target.id);
+        setInsurance(buildInsuranceFromPatient(target));
+        setEditingInsurance(false);
+        setJourneyStage(0);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const handleSelectPatient = (id) => {
+    const target = allPatients.find((p) => p.id === id);
+    if (!target) return;
+    setSelectedPatientId(id);
+    setInsurance(buildInsuranceFromPatient(target));
+    setEditingInsurance(false);
+    setJourneyStage(0);
+  };
 
   const patients = useMemo(() => {
     return allPatients
@@ -452,7 +480,14 @@ export default function ConfluenceDashboard() {
 
         .panel-like { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
 
-        .nav-header { padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+        .nav-header { padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }
+        .patient-select-wrap { display: flex; align-items: center; gap: 8px; }
+        .patient-select-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+        .patient-select {
+          background: var(--panel); border: 1px solid var(--border); color: var(--text);
+          font-family: inherit; font-size: 12px; padding: 8px 12px; border-radius: 8px;
+          max-width: 260px; cursor: pointer;
+        }
 
         .disclaimer-banner {
           display: flex; align-items: flex-start; gap: 10px;
@@ -782,6 +817,18 @@ export default function ConfluenceDashboard() {
                 <div className="title display">CONFLUENCE</div>
                 <div className="subtitle">Insurance Navigator — for {insurance.patientName} &amp; caregivers</div>
               </div>
+            </div>
+            <div className="patient-select-wrap">
+              <span className="patient-select-label">Viewing for</span>
+              <select
+                className="patient-select"
+                value={selectedPatientId}
+                onChange={(e) => handleSelectPatient(e.target.value)}
+              >
+                {allPatients.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} — {p.condition}</option>
+                ))}
+              </select>
             </div>
           </div>
 
