@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight } from "lucide-react";
+import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, MessageCircle, Send } from "lucide-react";
 
 const BASE_PATIENTS = [
   { id: "P-104", name: "R. Sharma", age: 62, sex: "M", condition: "Acute Myocardial Infarction", clinicalRisk: 92, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 88, bed: "Cardiac ICU", resourceFit: 40, wait: "6 min", estSavings: 185000, timeSavedMin: 34 },
@@ -126,13 +126,228 @@ const JOURNEY_STAGES = [
   },
 ];
 
+// --- Add-on: multi-language support (English / Tamil / Hindi) ---
+const LANG_OPTIONS = [
+  { code: "en", label: "EN" },
+  { code: "ta", label: "தமிழ்" },
+  { code: "hi", label: "हिंदी" },
+  { code: "kn", label: "ಕನ್ನಡ" },
+  { code: "te", label: "తెలుగు" },
+];
+
+const UI_TEXT = {
+  en: {
+    opsTab: "Admission Ops", navTab: "Insurance Navigator",
+    viewingFor: "Viewing for", editUpdate: "Edit / Update",
+    insuranceSummary: "Insurance Summary", insurer: "Insurer", policyType: "Policy Type",
+    coverageLimit: "Coverage Limit", roomEligibility: "Room Eligibility", exclusions: "Exclusions",
+    suggestedHospitals: "Suggested Hospitals & Rooms", careJourney: "Care Journey",
+    possibleAlternatives: "Possible Alternatives", save: "Save", cancel: "Cancel",
+    completed: "Completed", current: "Current", upcoming: "Upcoming",
+    disclaimer: "Decision-support information only — not a medical diagnosis or a binding insurance guarantee. Always confirm final coverage details with your insurer and hospital.",
+    takeawayPrefix: "You're covered up to", takeawayMid: "for a", takeawayRoom: "room. Choosing",
+    takeawaySuffix: "will likely mean extra out-of-pocket cost.",
+    uploadCard: "Upload Insurance Card", analyzing: "Analyzing document…",
+    extractedNote: "Extracted from your uploaded document — review and save below.",
+    askTitle: "Ask Confluence", askPlaceholder: "Ask about coverage, rooms, or next steps…", send: "Send",
+    askIntro: "Ask me anything about your coverage, hospitals, or care journey.",
+  },
+  ta: {
+    opsTab: "அனுமதி செயல்பாடுகள்", navTab: "காப்பீட்டு வழிகாட்டி",
+    viewingFor: "இதற்காகக் காட்டப்படுகிறது", editUpdate: "திருத்து / புதுப்பி",
+    insuranceSummary: "காப்பீட்டு சுருக்கம்", insurer: "காப்பீட்டாளர்", policyType: "பாலிசி வகை",
+    coverageLimit: "கவரேஜ் வரம்பு", roomEligibility: "அறை தகுதி", exclusions: "விலக்குகள்",
+    suggestedHospitals: "பரிந்துரைக்கப்படும் மருத்துவமனைகள் & அறைகள்", careJourney: "சிகிச்சைப் பயணம்",
+    possibleAlternatives: "சாத்தியமான மாற்று வழிகள்", save: "சேமி", cancel: "ரத்துசெய்",
+    completed: "முடிந்தது", current: "நடப்பில்", upcoming: "வரவிருக்கிறது",
+    disclaimer: "இது முடிவெடுக்க உதவும் தகவல் மட்டுமே — இது மருத்துவ ஆய்வறிக்கை அல்லது உறுதியான காப்பீட்டு உத்தரவாதம் அல்ல. இறுதி விவரங்களை உங்கள் காப்பீட்டாளர் மற்றும் மருத்துவமனையிடம் உறுதிப்படுத்திக் கொள்ளுங்கள்.",
+    takeawayPrefix: "உங்களுக்கு", takeawayMid: "வரை", takeawayRoom: "அறைக்கு கவரேஜ் உள்ளது. தேர்வு:",
+    takeawaySuffix: "— இதனால் கூடுதல் செலவு ஏற்படக்கூடும்.",
+    uploadCard: "காப்பீட்டு அட்டையை பதிவேற்று", analyzing: "ஆவணம் பகுப்பாய்வு செய்யப்படுகிறது…",
+    extractedNote: "உங்கள் ஆவணத்திலிருந்து பிரித்தெடுக்கப்பட்டது — கீழே சரிபார்த்து சேமிக்கவும்.",
+    askTitle: "Ask Confluence", askPlaceholder: "கவரேஜ், அறைகள் அல்லது அடுத்த படிகள் பற்றி கேளுங்கள்…", send: "அனுப்பு",
+    askIntro: "உங்கள் கவரேஜ், மருத்துவமனைகள் அல்லது சிகிச்சைப் பயணம் பற்றி என்னிடம் கேளுங்கள்.",
+  },
+  hi: {
+    opsTab: "प्रवेश संचालन", navTab: "बीमा नेविगेटर",
+    viewingFor: "इसके लिए दिखा रहे हैं", editUpdate: "संपादित करें / अपडेट करें",
+    insuranceSummary: "बीमा सारांश", insurer: "बीमाकर्ता", policyType: "पॉलिसी प्रकार",
+    coverageLimit: "कवरेज सीमा", roomEligibility: "कमरा पात्रता", exclusions: "अपवर्जन",
+    suggestedHospitals: "सुझाए गए अस्पताल और कमरे", careJourney: "उपचार यात्रा",
+    possibleAlternatives: "संभावित विकल्प", save: "सहेजें", cancel: "रद्द करें",
+    completed: "पूर्ण", current: "वर्तमान", upcoming: "आगामी",
+    disclaimer: "यह केवल निर्णय-सहायता जानकारी है — यह चिकित्सा निदान या बाध्यकारी बीमा गारंटी नहीं है। अंतिम कवरेज विवरण की पुष्टि हमेशा अपने बीमाकर्ता और अस्पताल से करें।",
+    takeawayPrefix: "आप", takeawayMid: "तक", takeawayRoom: "कमरे के लिए कवर हैं। चुनने पर:",
+    takeawaySuffix: "अतिरिक्त खर्च होने की संभावना है।",
+    uploadCard: "बीमा कार्ड अपलोड करें", analyzing: "दस्तावेज़ का विश्लेषण हो रहा है…",
+    extractedNote: "आपके अपलोड किए गए दस्तावेज़ से निकाला गया — नीचे समीक्षा करें और सहेजें।",
+    askTitle: "Ask Confluence", askPlaceholder: "कवरेज, कमरों या अगले चरणों के बारे में पूछें…", send: "भेजें",
+    askIntro: "अपनी कवरेज, अस्पतालों या उपचार यात्रा के बारे में मुझसे कुछ भी पूछें।",
+  },
+  kn: {
+    opsTab: "ಪ್ರವೇಶ ಕಾರ್ಯಾಚರಣೆಗಳು", navTab: "ವಿಮಾ ನ್ಯಾವಿಗೇಟರ್",
+    viewingFor: "ಇವರಿಗಾಗಿ ವೀಕ್ಷಿಸಲಾಗುತ್ತಿದೆ", editUpdate: "ಸಂಪಾದಿಸಿ / ನವೀಕರಿಸಿ",
+    insuranceSummary: "ವಿಮಾ ಸಾರಾಂಶ", insurer: "ವಿಮಾದಾರ", policyType: "ಪಾಲಿಸಿ ಪ್ರಕಾರ",
+    coverageLimit: "ಕವರೇಜ್ ಮಿತಿ", roomEligibility: "ಕೋಣೆ ಅರ್ಹತೆ", exclusions: "ಹೊರಗಿಡುವಿಕೆಗಳು",
+    suggestedHospitals: "ಶಿಫಾರಸು ಮಾಡಿದ ಆಸ್ಪತ್ರೆಗಳು ಮತ್ತು ಕೋಣೆಗಳು", careJourney: "ಆರೈಕೆ ಪ್ರಯಾಣ",
+    possibleAlternatives: "ಸಂಭಾವ್ಯ ಪರ್ಯಾಯಗಳು", save: "ಉಳಿಸಿ", cancel: "ರದ್ದುಮಾಡಿ",
+    completed: "ಪೂರ್ಣಗೊಂಡಿದೆ", current: "ಪ್ರಸ್ತುತ", upcoming: "ಮುಂಬರುವ",
+    disclaimer: "ಇದು ನಿರ್ಧಾರ-ಬೆಂಬಲ ಮಾಹಿತಿ ಮಾತ್ರ — ಇದು ವೈದ್ಯಕೀಯ ರೋಗನಿರ್ಣಯ ಅಥವಾ ಬಂಧಕಾರಿ ವಿಮಾ ಖಾತರಿ ಅಲ್ಲ. ಅಂತಿಮ ಕವರೇಜ್ ವಿವರಗಳನ್ನು ಯಾವಾಗಲೂ ನಿಮ್ಮ ವಿಮಾದಾರ ಮತ್ತು ಆಸ್ಪತ್ರೆಯೊಂದಿಗೆ ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ.",
+    takeawayPrefix: "ನೀವು", takeawayMid: "ವರೆಗೆ", takeawayRoom: "ಕೋಣೆಗೆ ಕವರೇಜ್ ಹೊಂದಿದ್ದೀರಿ. ಆಯ್ಕೆ:",
+    takeawaySuffix: "— ಇದರಿಂದ ಹೆಚ್ಚುವರಿ ವೆಚ್ಚ ಉಂಟಾಗಬಹುದು.",
+    uploadCard: "ವಿಮಾ ಕಾರ್ಡ್ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ", analyzing: "ದಾಖಲೆಯನ್ನು ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ…",
+    extractedNote: "ನಿಮ್ಮ ಅಪ್‌ಲೋಡ್ ಮಾಡಿದ ದಾಖಲೆಯಿಂದ ಹೊರತೆಗೆಯಲಾಗಿದೆ — ಕೆಳಗೆ ಪರಿಶೀಲಿಸಿ ಮತ್ತು ಉಳಿಸಿ.",
+    askTitle: "Ask Confluence", askPlaceholder: "ಕವರೇಜ್, ಕೋಣೆಗಳು ಅಥವಾ ಮುಂದಿನ ಹಂತಗಳ ಬಗ್ಗೆ ಕೇಳಿ…", send: "ಕಳುಹಿಸಿ",
+    askIntro: "ನಿಮ್ಮ ಕವರೇಜ್, ಆಸ್ಪತ್ರೆಗಳು ಅಥವಾ ಆರೈಕೆ ಪ್ರಯಾಣದ ಬಗ್ಗೆ ನನ್ನನ್ನು ಏನಾದರೂ ಕೇಳಿ.",
+  },
+  te: {
+    opsTab: "ప్రవేశ కార్యకలాపాలు", navTab: "బీమా నావిగేటర్",
+    viewingFor: "వీక్షిస్తున్నది", editUpdate: "సవరించండి / నవీకరించండి",
+    insuranceSummary: "బీమా సారాంశం", insurer: "బీమాదారు", policyType: "పాలసీ రకం",
+    coverageLimit: "కవరేజ్ పరిమితి", roomEligibility: "గది అర్హత", exclusions: "మినహాయింపులు",
+    suggestedHospitals: "సూచించిన ఆసుపత్రులు & గదులు", careJourney: "సంరక్షణ ప్రయాణం",
+    possibleAlternatives: "సాధ్యమైన ప్రత్యామ్నాయాలు", save: "సేవ్ చేయండి", cancel: "రద్దు చేయండి",
+    completed: "పూర్తయింది", current: "ప్రస్తుతం", upcoming: "రాబోయేది",
+    disclaimer: "ఇది కేవలం నిర్ణయ-మద్దతు సమాచారం మాత్రమే — ఇది వైద్య నిర్ధారణ లేదా కట్టుబడి ఉండే బీమా హామీ కాదు. తుది కవరేజ్ వివరాలను ఎల్లప్పుడూ మీ బీమాదారు మరియు ఆసుపత్రితో నిర్ధారించుకోండి.",
+    takeawayPrefix: "మీరు", takeawayMid: "వరకు", takeawayRoom: "గదికి కవరేజ్ కలిగి ఉన్నారు. ఎంచుకుంటే:",
+    takeawaySuffix: "— దీనివల్ల అదనపు ఖర్చు అయ్యే అవకాశం ఉంది.",
+    uploadCard: "బీమా కార్డు అప్‌లోడ్ చేయండి", analyzing: "పత్రాన్ని విశ్లేషిస్తోంది…",
+    extractedNote: "మీరు అప్‌లోడ్ చేసిన పత్రం నుండి సేకరించబడింది — దిగువన సమీక్షించి సేవ్ చేయండి.",
+    askTitle: "Ask Confluence", askPlaceholder: "కవరేజ్, గదులు లేదా తదుపరి దశల గురించి అడగండి…", send: "పంపండి",
+    askIntro: "మీ కవరేజ్, ఆసుపత్రులు లేదా సంరక్షణ ప్రయాణం గురించి నన్ను ఏదైనా అడగండి.",
+  },
+};
+
+const STAGE_I18N = {
+  admission: {
+    label: { en: "Admission", ta: "அனுமதி", hi: "प्रवेश", kn: "ಪ್ರವೇಶ", te: "ప్రవేశం" },
+    guidance: {
+      en: JOURNEY_STAGES[0].guidance,
+      ta: "உங்கள் பாலிசி நெட்வொர்க் மருத்துவமனைகளில் ஜெனரல் வார்டு மற்றும் செமி-பிரைவேட் அறைகளுக்கு பணமில்லா தீர்வாக கவரேஜ் வழங்குகிறது. பிரைவேட் அல்லது டீலக்ஸ் அறையைத் தேர்ந்தெடுத்தால், தினசரி கூடுதல் தொகை செலுத்த வேண்டும்.",
+      hi: "आपकी पॉलिसी नेटवर्क अस्पतालों में जनरल वार्ड और सेमी-प्राइवेट कमरों को कैशलेस सेटलमेंट के साथ कवर करती है। प्राइवेट या डीलक्स कमरा चुनने पर प्रतिदिन अतिरिक्त सह-भुगतान करना होगा।",
+      kn: "ನಿಮ್ಮ ಪಾಲಿಸಿ ನೆಟ್‌ವರ್ಕ್ ಆಸ್ಪತ್ರೆಗಳಲ್ಲಿ ಜನರಲ್ ವಾರ್ಡ್ ಮತ್ತು ಸೆಮಿ-ಪ್ರೈವೇಟ್ ಕೋಣೆಗಳಿಗೆ ನಗದುರಹಿತ ಇತ್ಯರ್ಥದೊಂದಿಗೆ ಕವರೇಜ್ ನೀಡುತ್ತದೆ. ಪ್ರೈವೇಟ್ ಅಥವಾ ಡಿಲಕ್ಸ್ ಕೋಣೆಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿದರೆ ದೈನಂದಿನ ಹೆಚ್ಚುವರಿ ಪಾವತಿ ಬೇಕಾಗುತ್ತದೆ.",
+      te: "మీ పాలసీ నెట్‌వర్క్ ఆసుపత్రులలో జనరల్ వార్డ్ మరియు సెమీ-ప్రైవేట్ గదులకు నగదు రహిత పరిష్కారంతో కవరేజ్ ఇస్తుంది. ప్రైవేట్ లేదా డీలక్స్ గదిని ఎంచుకుంటే రోజువారీ అదనపు చెల్లింపు అవసరం.",
+    },
+    altTitles: {
+      en: ["Upgrade to Private Room", "Downgrade to General Ward", "Transfer to another in-network hospital"],
+      ta: ["பிரைவேட் அறைக்கு மேம்படுத்து", "ஜெனரல் வார்டுக்கு மாற்று", "மற்றொரு நெட்வொர்க் மருத்துவமனைக்கு மாற்று"],
+      hi: ["प्राइवेट कमरे में अपग्रेड करें", "जनरल वार्ड में डाउनग्रेड करें", "किसी अन्य नेटवर्क अस्पताल में स्थानांतरित करें"],
+      kn: ["ಪ್ರೈವೇಟ್ ಕೋಣೆಗೆ ಅಪ್‌ಗ್ರೇಡ್ ಮಾಡಿ", "ಜನರಲ್ ವಾರ್ಡ್‌ಗೆ ಡೌನ್‌ಗ್ರೇಡ್ ಮಾಡಿ", "ಬೇರೆ ನೆಟ್‌ವರ್ಕ್ ಆಸ್ಪತ್ರೆಗೆ ವರ್ಗಾಯಿಸಿ"],
+      te: ["ప్రైవేట్ గదికి అప్‌గ్రేడ్ చేయండి", "జనరల్ వార్డుకు డౌన్‌గ్రేడ్ చేయండి", "వేరే నెట్‌వర్క్ ఆసుపత్రికి బదిలీ చేయండి"],
+    },
+  },
+  investigation: {
+    label: { en: "Investigation", ta: "பரிசோதனை", hi: "जांच", kn: "ತನಿಖೆ", te: "పరిశోధన" },
+    guidance: {
+      en: JOURNEY_STAGES[1].guidance,
+      ta: "இந்த கட்டத்தில் செய்யப்படும் பரிசோதனைகள் பொதுவாக உங்கள் பாலிசியின் துணை வரம்பு வரை கவர் செய்யப்படும். நெட்வொர்க் அல்லாத பரிசோதனைகளுக்கு திருப்பிச் செலுத்தக் கோரிக்கைக்காக அசல் பில்கள் மற்றும் அறிக்கைகளை வைத்திருங்கள்.",
+      hi: "इस चरण के दौरान की जाने वाली जांचें आमतौर पर आपकी पॉलिसी की उप-सीमा तक कवर होती हैं। नेटवर्क से बाहर की जांचों के लिए प्रतिपूर्ति दावे हेतु मूल बिल और रिपोर्ट सुरक्षित रखें।",
+      kn: "ಈ ಹಂತದಲ್ಲಿ ನಡೆಸುವ ಪರೀಕ್ಷೆಗಳು ಸಾಮಾನ್ಯವಾಗಿ ನಿಮ್ಮ ಪಾಲಿಸಿಯ ಉಪ-ಮಿತಿಯವರೆಗೆ ಕವರ್ ಆಗುತ್ತವೆ. ನೆಟ್‌ವರ್ಕ್ ಹೊರಗಿನ ಪರೀಕ್ಷೆಗಳಿಗೆ ಮರುಪಾವತಿ ಕ್ಲೈಮ್‌ಗಾಗಿ ಮೂಲ ಬಿಲ್‌ಗಳು ಮತ್ತು ವರದಿಗಳನ್ನು ಇರಿಸಿಕೊಳ್ಳಿ.",
+      te: "ఈ దశలో చేసే పరీక్షలు సాధారణంగా మీ పాలసీ ఉప-పరిమితి వరకు కవర్ అవుతాయి. నెట్‌వర్క్ వెలుపలి పరీక్షలకు రీయింబర్స్‌మెంట్ క్లెయిమ్ కోసం అసలు బిల్లులు మరియు నివేదికలను ఉంచుకోండి.",
+    },
+    altTitles: {
+      en: ["In-hospital diagnostic package", "Out-of-network lab tests"],
+      ta: ["மருத்துவமனை பரிசோதனை தொகுப்பு", "நெட்வொர்க் அல்லாத ஆய்வக பரிசோதனைகள்"],
+      hi: ["अस्पताल जांच पैकेज", "नेटवर्क से बाहर लैब जांच"],
+      kn: ["ಆಸ್ಪತ್ರೆಯ ರೋಗನಿರ್ಣಯ ಪ್ಯಾಕೇಜ್", "ನೆಟ್‌ವರ್ಕ್ ಹೊರಗಿನ ಲ್ಯಾಬ್ ಪರೀಕ್ಷೆಗಳು"],
+      te: ["ఆసుపత్రి డయాగ్నస్టిక్ ప్యాకేజీ", "నెట్‌వర్క్ వెలుపలి ల్యాబ్ పరీక్షలు"],
+    },
+  },
+  procedure: {
+    label: { en: "Procedure", ta: "சிகிச்சை", hi: "प्रक्रिया", kn: "ಚಿಕಿತ್ಸೆ", te: "ప్రక్రియ" },
+    guidance: {
+      en: JOURNEY_STAGES[2].guidance,
+      ta: "நிலையான சிகிச்சை பொருட்கள் மற்றும் இம்ப்ளான்ட்கள் உங்கள் மகப்பேறு பலனின் கீழ் கவர் செய்யப்படும். பிரீமியம் அல்லது பிராண்டட் பொருட்கள் பகுதியளவே கவர் செய்யப்படலாம் — உங்கள் பாலிசியின் இணைப்பைப் பார்க்கவும்.",
+      hi: "मानक प्रक्रिया उपभोज्य सामग्री और इम्प्लांट आपके मातृत्व लाभ के अंतर्गत कवर होते हैं। प्रीमियम या ब्रांडेड सामग्री केवल आंशिक रूप से कवर हो सकती है — अपनी पॉलिसी का एनेक्सचर देखें।",
+      kn: "ಪ್ರಮಾಣಿತ ಚಿಕಿತ್ಸಾ ಸಾಮಗ್ರಿಗಳು ಮತ್ತು ಇಂಪ್ಲಾಂಟ್‌ಗಳು ನಿಮ್ಮ ಹೆರಿಗೆ ಪ್ರಯೋಜನದ ಅಡಿಯಲ್ಲಿ ಕವರ್ ಆಗುತ್ತವೆ. ಪ್ರೀಮಿಯಂ ಅಥವಾ ಬ್ರಾಂಡೆಡ್ ಸಾಮಗ್ರಿಗಳು ಭಾಗಶಃ ಮಾತ್ರ ಕವರ್ ಆಗಬಹುದು — ನಿಮ್ಮ ಪಾಲಿಸಿಯ ಅನೆಕ್ಸರ್ ಪರಿಶೀಲಿಸಿ.",
+      te: "ప్రామాణిక ప్రక్రియ వినియోగ వస్తువులు మరియు ఇంప్లాంట్లు మీ ప్రసూతి ప్రయోజనం కింద కవర్ అవుతాయి. ప్రీమియం లేదా బ్రాండెడ్ వస్తువులు పాక్షికంగా మాత్రమే కవర్ కావచ్చు — మీ పాలసీ అనుబంధాన్ని తనిఖీ చేయండి.",
+    },
+    altTitles: {
+      en: ["Standard consumables", "Premium/branded consumables"],
+      ta: ["நிலையான பொருட்கள்", "பிரீமியம்/பிராண்டட் பொருட்கள்"],
+      hi: ["मानक उपभोज्य सामग्री", "प्रीमियम/ब्रांडेड सामग्री"],
+      kn: ["ಪ್ರಮಾಣಿತ ಸಾಮಗ್ರಿಗಳು", "ಪ್ರೀಮಿಯಂ/ಬ್ರಾಂಡೆಡ್ ಸಾಮಗ್ರಿಗಳು"],
+      te: ["ప్రామాణిక వస్తువులు", "ప్రీమియం/బ్రాండెడ్ వస్తువులు"],
+    },
+  },
+  recovery: {
+    label: { en: "Recovery", ta: "மீட்பு", hi: "रिकवरी", kn: "ಚೇತರಿಕೆ", te: "కోలుకోవడం" },
+    guidance: {
+      en: JOURNEY_STAGES[3].guidance,
+      ta: "சிகிச்சைக்குப் பிறகான மீட்பு நாட்கள் உங்கள் தகுதியான அறை வகையில் பணமில்லா தொடர்கிறது. பாலிசியின் நாள் வரம்பை மீறும் தங்குதலுக்கு கூடுதல் கட்டணம் விதிக்கப்படலாம்.",
+      hi: "प्रक्रिया के बाद रिकवरी के दिन आपकी पात्र कमरा श्रेणी में कैशलेस बने रहते हैं। पॉलिसी की दिन-सीमा से अधिक ठहरने पर अतिरिक्त शुल्क लग सकता है।",
+      kn: "ಚಿಕಿತ್ಸೆಯ ನಂತರದ ಚೇತರಿಕೆಯ ದಿನಗಳು ನಿಮ್ಮ ಅರ್ಹ ಕೋಣೆ ವರ್ಗದಲ್ಲಿ ನಗದುರಹಿತವಾಗಿ ಮುಂದುವರಿಯುತ್ತವೆ. ಪಾಲಿಸಿಯ ದಿನ-ಮಿತಿಯನ್ನು ಮೀರಿದ ವಾಸ್ತವ್ಯಕ್ಕೆ ಹೆಚ್ಚುವರಿ ಶುಲ್ಕ ವಿಧಿಸಬಹುದು.",
+      te: "ప్రక్రియ తర్వాత కోలుకునే రోజులు మీ అర్హత గల గది వర్గంలో నగదు రహితంగా కొనసాగుతాయి. పాలసీ దిన-పరిమితిని మించిన బసకు అదనపు రుసుము వర్తించవచ్చు.",
+    },
+    altTitles: {
+      en: ["Extended stay beyond day-limit", "Early discharge with home care"],
+      ta: ["நாள் வரம்பை மீறிய தங்குதல்", "வீட்டு பராமரிப்புடன் முன்கூட்டியே டிஸ்சார்ஜ்"],
+      hi: ["दिन-सीमा से अधिक ठहराव", "होम केयर के साथ जल्दी छुट्टी"],
+      kn: ["ದಿನ-ಮಿತಿ ಮೀರಿದ ವಿಸ್ತೃತ ವಾಸ್ತವ್ಯ", "ಮನೆ ಆರೈಕೆಯೊಂದಿಗೆ ಮುಂಚಿತ ಡಿಸ್ಚಾರ್ಜ್"],
+      te: ["దిన-పరిమితి దాటిన పొడిగించిన బస", "హోమ్ కేర్‌తో ముందస్తు డిశ్చార్జ్"],
+    },
+  },
+};
+
+// --- Add-on: mock insurance-card extraction (simulated OCR, synthetic data per brief) ---
+const MOCK_EXTRACTION = {
+  insurer: "Star Health — Family Health Optima",
+  policyType: "Family Floater (Individual Coverage)",
+  coverageLimit: 300000,
+  roomEligibility: ["Semi-Private", "Private"],
+  exclusions: ["ICU Suite", "Cosmetic Procedures"],
+};
+
+// --- Add-on: rule-based "Ask Confluence" assistant — grounded in the current patient's real state,
+// so it never invents numbers. Stays within the brief's "decision-support only" boundary. ---
+function generateAssistantReply(question, profile, stage, hospitals) {
+  const q = question.toLowerCase();
+
+  if (/private|upgrade|deluxe/.test(q)) {
+    const covered = profile.roomEligibility.join(" or ");
+    return `Your policy covers ${covered}. Upgrading to a room outside that list (like Private or Deluxe) usually means a daily co-pay difference — check the "Possible Alternatives" list on the current stage for an estimate.`;
+  }
+  if (/network|out.?of.?network/.test(q)) {
+    const outNames = hospitals.filter((h) => h.network === "Out-of-Network").map((h) => h.name);
+    return outNames.length
+      ? `Most listed hospitals are in-network. ${outNames.join(", ")} ${outNames.length > 1 ? "are" : "is"} out-of-network — that typically means reimbursement instead of cashless settlement.`
+      : `All currently listed hospitals are in-network, so cashless settlement should apply.`;
+  }
+  if (/cost|price|how much|expensive|out.?of.?pocket/.test(q)) {
+    const cheapest = [...hospitals].sort((a, b) => a.indicativeCost - b.indicativeCost)[0];
+    return `Your coverage limit is ${formatRupees(profile.coverageLimit)}. Indicative costs range up to ${formatRupees(Math.max(...hospitals.map((h) => h.indicativeCost)))}, with ${cheapest.name} the lowest at ~${formatRupees(cheapest.indicativeCost)}.`;
+  }
+  if (/exclu|not covered|won.?t cover|doesn.?t cover/.test(q)) {
+    return `Your policy explicitly excludes: ${profile.exclusions.join(", ")}. Anything in that list will likely mean out-of-pocket expense.`;
+  }
+  if (/transfer/.test(q)) {
+    const t = stage.alternatives.find((a) => /transfer/i.test(a.title));
+    return t ? `${t.title}: ${t.detail}` : `A hospital transfer isn't typically listed as an alternative at the ${stage.label} stage — check the Admission stage for transfer options.`;
+  }
+  if (/admission|admit/.test(q)) return `${STAGE_I18N.admission.guidance.en}`;
+  if (/investigat|test|diagnos/.test(q)) return `${STAGE_I18N.investigation.guidance.en}`;
+  if (/procedure|surgery|consumable|implant/.test(q)) return `${STAGE_I18N.procedure.guidance.en}`;
+  if (/recovery|discharge/.test(q)) return `${STAGE_I18N.recovery.guidance.en}`;
+  if (/coverage|limit|how much covered/.test(q)) {
+    return `You're covered up to ${formatRupees(profile.coverageLimit)} under ${profile.insurer} (${profile.policyType}).`;
+  }
+
+  return `Right now you're at the ${stage.label} stage: ${stage.guidance} You can also ask me about hospital networks, costs, exclusions, or transfer options.`;
+}
+
 export default function ConfluenceDashboard() {
   const [activeTab, setActiveTab] = useState("ops");
   const [journeyStage, setJourneyStage] = useState(0);
+  const [lang, setLang] = useState("en");
   const [selectedPatientId, setSelectedPatientId] = useState(BASE_PATIENTS[0].id);
   const [insurance, setInsurance] = useState(() => buildInsuranceFromPatient(BASE_PATIENTS[0]));
   const [editingInsurance, setEditingInsurance] = useState(false);
   const [draftInsurance, setDraftInsurance] = useState(() => buildInsuranceFromPatient(BASE_PATIENTS[0]));
+  const [uploading, setUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatTyping, setChatTyping] = useState(false);
   const [weights, setWeights] = useState({ clinical: 45, policy: 30, resource: 25 });
   const [expandedId, setExpandedId] = useState("P-104");
   const [filter, setFilter] = useState("all");
@@ -169,6 +384,39 @@ export default function ConfluenceDashboard() {
     setInsurance(buildInsuranceFromPatient(target));
     setEditingInsurance(false);
     setJourneyStage(0);
+    setChatMessages([]);
+    setUploadedFileName(null);
+  };
+
+  // --- Add-on: simulated insurance card upload + auto-extraction ---
+  const handleUploadCard = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setUploadedFileName(file.name);
+    setUploading(true);
+    setTimeout(() => {
+      setDraftInsurance({ ...MOCK_EXTRACTION, patientName: insurance.patientName });
+      setEditingInsurance(true);
+      setUploading(false);
+    }, 1200);
+  };
+
+  // --- Add-on: Ask Confluence assistant ---
+  const handleSendChat = () => {
+    const question = chatInput.trim();
+    if (!question) return;
+    setChatMessages((prev) => [...prev, { role: "user", text: question }]);
+    setChatInput("");
+    setChatTyping(true);
+    setTimeout(() => {
+      const reply = generateAssistantReply(question, insurance, JOURNEY_STAGES[journeyStage], HOSPITALS);
+      setChatMessages((prev) => [...prev, { role: "assistant", text: reply }]);
+      setChatTyping(false);
+    }, 550);
+  };
+
+  const handleChatKeyDown = (e) => {
+    if (e.key === "Enter") handleSendChat();
   };
 
   const patients = useMemo(() => {
@@ -604,6 +852,55 @@ export default function ConfluenceDashboard() {
         .alt-item { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; }
         .alt-item-title { font-size: 12px; font-weight: 600; color: var(--text); }
         .alt-item-detail { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+
+        .nav-header-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .lang-switch { display: flex; gap: 4px; flex-wrap: wrap; }
+        .lang-btn {
+          font-family: inherit; font-size: 11px; font-weight: 600; padding: 6px 10px;
+          border-radius: 7px; cursor: pointer; background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+        }
+        .lang-btn.active { background: var(--gold); border-color: var(--gold); color: #241a03; }
+
+        .upload-block { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
+        .upload-btn {
+          display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600;
+          color: var(--clinical); background: rgba(79,201,224,0.08); border: 1px dashed rgba(79,201,224,0.4);
+          border-radius: 8px; padding: 8px 12px; cursor: pointer;
+        }
+        .upload-filename { font-size: 10.5px; color: var(--muted); margin-top: 6px; }
+        .extracted-note {
+          display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--gold);
+          background: rgba(240,180,41,0.08); border: 1px solid rgba(240,180,41,0.3);
+          border-radius: 7px; padding: 8px 10px; margin-bottom: 4px;
+        }
+
+        .chat-panel { margin-top: 16px; }
+        .chat-window {
+          display: flex; flex-direction: column; gap: 8px; min-height: 90px; max-height: 260px;
+          overflow-y: auto; margin: 12px 0; padding-right: 4px;
+        }
+        .chat-intro { font-size: 12px; color: var(--muted); font-style: italic; }
+        .chat-bubble {
+          max-width: 80%; font-size: 12.5px; line-height: 1.55; padding: 9px 13px; border-radius: 10px;
+        }
+        .chat-bubble.user {
+          align-self: flex-end; background: var(--policy); color: #fff; border-bottom-right-radius: 3px;
+        }
+        .chat-bubble.assistant {
+          align-self: flex-start; background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+          border-bottom-left-radius: 3px;
+        }
+        .chat-bubble.typing { color: var(--muted); font-weight: 700; letter-spacing: 2px; }
+        .chat-input-row { display: flex; gap: 8px; }
+        .chat-input {
+          flex: 1; background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+          font-family: inherit; font-size: 12.5px; padding: 10px 12px; border-radius: 8px;
+        }
+        .chat-send-btn {
+          display: flex; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600;
+          background: var(--policy); border: 1px solid var(--policy); color: #fff;
+          padding: 0 16px; border-radius: 8px; cursor: pointer;
+        }
       `}</style>
 
       <div className="tab-switch">
@@ -815,62 +1112,85 @@ export default function ConfluenceDashboard() {
               <div className="brand-mark"><Sparkles size={18} color="#0a0f16" /></div>
               <div>
                 <div className="title display">CONFLUENCE</div>
-                <div className="subtitle">Insurance Navigator — for {insurance.patientName} &amp; caregivers</div>
+                <div className="subtitle">{UI_TEXT[lang].navTab} — {insurance.patientName}</div>
               </div>
             </div>
-            <div className="patient-select-wrap">
-              <span className="patient-select-label">Viewing for</span>
-              <select
-                className="patient-select"
-                value={selectedPatientId}
-                onChange={(e) => handleSelectPatient(e.target.value)}
-              >
-                {allPatients.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} — {p.condition}</option>
+            <div className="nav-header-controls">
+              <div className="lang-switch">
+                {LANG_OPTIONS.map((l) => (
+                  <button key={l.code} className={"lang-btn" + (lang === l.code ? " active" : "")} onClick={() => setLang(l.code)}>
+                    {l.label}
+                  </button>
                 ))}
-              </select>
+              </div>
+              <div className="patient-select-wrap">
+                <span className="patient-select-label">{UI_TEXT[lang].viewingFor}</span>
+                <select
+                  className="patient-select"
+                  value={selectedPatientId}
+                  onChange={(e) => handleSelectPatient(e.target.value)}
+                >
+                  {allPatients.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} — {p.condition}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
           <div className="disclaimer-banner">
             <Info size={14} />
-            <span>Decision-support information only — not a medical diagnosis or a binding insurance guarantee. Always confirm final coverage details with your insurer and hospital.</span>
+            <span>{UI_TEXT[lang].disclaimer}</span>
           </div>
 
           <div className="key-takeaway">
             <ShieldCheck size={16} />
             <span>
-              You're covered up to <b>{formatRupees(insurance.coverageLimit)}</b> for a{" "}
-              <b>{insurance.roomEligibility.join(" or ")}</b> room. Choosing {insurance.exclusions.join(" or ")} will likely mean extra out-of-pocket cost.
+              {UI_TEXT[lang].takeawayPrefix} <b>{formatRupees(insurance.coverageLimit)}</b> {UI_TEXT[lang].takeawayMid}{" "}
+              <b>{insurance.roomEligibility.join(" / ")}</b> {UI_TEXT[lang].takeawayRoom} {insurance.exclusions.join(", ")} {UI_TEXT[lang].takeawaySuffix}
             </span>
           </div>
 
           <div className="nav-grid">
             <div className="panel-like insurance-card">
               <div className="sidebar-title">
-                <ShieldCheck size={14} /> Insurance Summary
+                <ShieldCheck size={14} /> {UI_TEXT[lang].insuranceSummary}
                 {!editingInsurance && (
-                  <button className="edit-link" onClick={startEditingInsurance}>Edit / Update</button>
+                  <button className="edit-link" onClick={startEditingInsurance}>{UI_TEXT[lang].editUpdate}</button>
                 )}
               </div>
 
               {!editingInsurance ? (
                 <>
-                  <div className="ins-row"><span>Insurer</span><b>{insurance.insurer}</b></div>
-                  <div className="ins-row"><span>Policy Type</span><b>{insurance.policyType}</b></div>
-                  <div className="ins-row"><span>Coverage Limit</span><b className="mono">{formatRupees(insurance.coverageLimit)}</b></div>
-                  <div className="ins-row"><span>Room Eligibility</span><b>{insurance.roomEligibility.join(", ") || "—"}</b></div>
-                  <div className="ins-row"><span>Exclusions</span><b className="exclusion-text">{insurance.exclusions.join(", ")}</b></div>
+                  <div className="ins-row"><span>{UI_TEXT[lang].insurer}</span><b>{insurance.insurer}</b></div>
+                  <div className="ins-row"><span>{UI_TEXT[lang].policyType}</span><b>{insurance.policyType}</b></div>
+                  <div className="ins-row"><span>{UI_TEXT[lang].coverageLimit}</span><b className="mono">{formatRupees(insurance.coverageLimit)}</b></div>
+                  <div className="ins-row"><span>{UI_TEXT[lang].roomEligibility}</span><b>{insurance.roomEligibility.join(", ") || "—"}</b></div>
+                  <div className="ins-row"><span>{UI_TEXT[lang].exclusions}</span><b className="exclusion-text">{insurance.exclusions.join(", ")}</b></div>
+
+                  <div className="upload-block">
+                    <label className="upload-btn">
+                      <UploadCloud size={13} />
+                      {uploading ? UI_TEXT[lang].analyzing : UI_TEXT[lang].uploadCard}
+                      <input type="file" accept="image/*,.pdf" onChange={handleUploadCard} disabled={uploading} hidden />
+                    </label>
+                    {uploadedFileName && !uploading && (
+                      <div className="upload-filename">{uploadedFileName}</div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="ins-form">
+                  {uploadedFileName && (
+                    <div className="extracted-note"><Sparkles size={12} /> {UI_TEXT[lang].extractedNote}</div>
+                  )}
                   <label className="ins-label">Insurer / Scheme</label>
                   <select
                     className="ins-input"
                     value={draftInsurance.insurer}
                     onChange={(e) => setDraftInsurance((p) => ({ ...p, insurer: e.target.value }))}
                   >
-                    {INSURER_OPTIONS.map((opt) => (
+                    {[...new Set([draftInsurance.insurer, ...INSURER_OPTIONS])].map((opt) => (
                       <option key={opt} value={opt}>{opt}</option>
                     ))}
                   </select>
@@ -914,15 +1234,15 @@ export default function ConfluenceDashboard() {
                   />
 
                   <div className="ins-form-actions">
-                    <button className="ins-save-btn" onClick={saveInsuranceEdits}>Save</button>
-                    <button className="ins-cancel-btn" onClick={cancelInsuranceEdits}>Cancel</button>
+                    <button className="ins-save-btn" onClick={saveInsuranceEdits}>{UI_TEXT[lang].save}</button>
+                    <button className="ins-cancel-btn" onClick={cancelInsuranceEdits}>{UI_TEXT[lang].cancel}</button>
                   </div>
                 </div>
               )}
             </div>
 
             <div className="panel-like hospital-panel">
-              <div className="sidebar-title"><Building2 size={14} /> Suggested Hospitals &amp; Rooms</div>
+              <div className="sidebar-title"><Building2 size={14} /> {UI_TEXT[lang].suggestedHospitals}</div>
               <div className="hospital-list">
                 {HOSPITALS.map((h) => {
                   const m = hospitalMatch(h, insurance);
@@ -953,10 +1273,11 @@ export default function ConfluenceDashboard() {
           </div>
 
           <div className="panel-like journey-panel">
-            <div className="sidebar-title"><ListChecks size={14} /> Care Journey</div>
+            <div className="sidebar-title"><ListChecks size={14} /> {UI_TEXT[lang].careJourney}</div>
             <div className="stage-track">
               {JOURNEY_STAGES.map((s, idx) => {
-                const status = idx < journeyStage ? "Completed" : idx === journeyStage ? "Current" : "Upcoming";
+                const i18n = STAGE_I18N[s.key];
+                const statusText = idx < journeyStage ? UI_TEXT[lang].completed : idx === journeyStage ? UI_TEXT[lang].current : UI_TEXT[lang].upcoming;
                 return (
                   <button
                     key={s.key}
@@ -965,26 +1286,50 @@ export default function ConfluenceDashboard() {
                   >
                     <span className="stage-index">{idx + 1}</span>
                     <span className="stage-btn-text">
-                      <span className="stage-btn-label">{s.label}</span>
-                      <span className="stage-btn-status">{status}</span>
+                      <span className="stage-btn-label">{i18n.label[lang]}</span>
+                      <span className="stage-btn-status">{statusText}</span>
                     </span>
                   </button>
                 );
               })}
             </div>
             <div className="stage-panel">
-              <div className="stage-title">{JOURNEY_STAGES[journeyStage].label} — Insurance Guidance</div>
-              <div className="stage-guidance">{JOURNEY_STAGES[journeyStage].guidance}</div>
+              <div className="stage-title">{STAGE_I18N[JOURNEY_STAGES[journeyStage].key].label[lang]} — Insurance Guidance</div>
+              <div className="stage-guidance">{STAGE_I18N[JOURNEY_STAGES[journeyStage].key].guidance[lang]}</div>
 
-              <div className="alt-title"><ArrowLeftRight size={12} /> Possible Alternatives</div>
+              <div className="alt-title"><ArrowLeftRight size={12} /> {UI_TEXT[lang].possibleAlternatives}</div>
               <div className="alt-list">
                 {JOURNEY_STAGES[journeyStage].alternatives.map((a, i) => (
                   <div className="alt-item" key={i}>
-                    <div className="alt-item-title">{a.title}</div>
+                    <div className="alt-item-title">{STAGE_I18N[JOURNEY_STAGES[journeyStage].key].altTitles[lang][i]}</div>
                     <div className="alt-item-detail">{a.detail}</div>
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          <div className="panel-like chat-panel">
+            <div className="sidebar-title"><MessageCircle size={14} /> {UI_TEXT[lang].askTitle}</div>
+            <div className="chat-window">
+              {chatMessages.length === 0 && (
+                <div className="chat-intro">{UI_TEXT[lang].askIntro}</div>
+              )}
+              {chatMessages.map((m, i) => (
+                <div key={i} className={"chat-bubble " + m.role}>{m.text}</div>
+              ))}
+              {chatTyping && <div className="chat-bubble assistant typing">···</div>}
+            </div>
+            <div className="chat-input-row">
+              <input
+                className="chat-input"
+                type="text"
+                placeholder={UI_TEXT[lang].askPlaceholder}
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={handleChatKeyDown}
+              />
+              <button className="chat-send-btn" onClick={handleSendChat}><Send size={14} /> {UI_TEXT[lang].send}</button>
             </div>
           </div>
         </div>
