@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, MessageCircle, Send, Languages, ShieldAlert, Mic, Volume2, Paperclip } from "lucide-react";
+import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, MessageCircle, Send } from "lucide-react";
 
 const BASE_PATIENTS = [
   { id: "P-104", name: "R. Sharma", age: 62, sex: "M", condition: "Acute Myocardial Infarction", clinicalRisk: 92, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 88, bed: "Cardiac ICU", resourceFit: 40, wait: "6 min", estSavings: 185000, timeSavedMin: 34 },
@@ -128,29 +128,11 @@ const JOURNEY_STAGES = [
 
 // --- Add-on: multi-language support (English / Tamil / Hindi) ---
 const LANG_OPTIONS = [
-  { code: "en", label: "English" },
-  { code: "hi", label: "हिंदी (Hindi)" },
-  { code: "bn", label: "বাংলা (Bengali)" },
-  { code: "te", label: "తెలుగు (Telugu)" },
-  { code: "mr", label: "मराठी (Marathi)" },
-  { code: "ta", label: "தமிழ் (Tamil)" },
-  { code: "ur", label: "اردو (Urdu)" },
-  { code: "gu", label: "ગુજરાતી (Gujarati)" },
-  { code: "kn", label: "ಕನ್ನಡ (Kannada)" },
-  { code: "ml", label: "മലയാളം (Malayalam)" },
-  { code: "or", label: "ଓଡ଼ିଆ (Odia)" },
-  { code: "pa", label: "ਪੰਜਾਬੀ (Punjabi)" },
-  { code: "as", label: "অসমীয়া (Assamese)" },
-  { code: "mai", label: "मैथिली (Maithili)" },
-  { code: "sat", label: "Santali" },
-  { code: "ks", label: "کٲشُر (Kashmiri)" },
-  { code: "ne", label: "नेपाली (Nepali)" },
-  { code: "sd", label: "سنڌي (Sindhi)" },
-  { code: "kok", label: "कोंकणी (Konkani)" },
-  { code: "doi", label: "डोगरी (Dogri)" },
-  { code: "mni", label: "মৈতৈলোন্ (Manipuri)" },
-  { code: "sa", label: "संस्कृतम् (Sanskrit)" },
-  { code: "brx", label: "बड़ो (Bodo)" },
+  { code: "en", label: "EN" },
+  { code: "ta", label: "தமிழ்" },
+  { code: "hi", label: "हिंदी" },
+  { code: "kn", label: "ಕನ್ನಡ" },
+  { code: "te", label: "తెలుగు" },
 ];
 
 const UI_TEXT = {
@@ -307,25 +289,7 @@ const STAGE_I18N = {
   },
 };
 
-// Any language in LANG_OPTIONS without a full translation above safely falls back to English,
-// so selecting it never breaks the UI — it just displays English until localized further.
-LANG_OPTIONS.forEach(({ code }) => {
-  if (!UI_TEXT[code]) UI_TEXT[code] = UI_TEXT.en;
-  Object.values(STAGE_I18N).forEach((stage) => {
-    if (!stage.label[code]) stage.label[code] = stage.label.en;
-    if (!stage.guidance[code]) stage.guidance[code] = stage.guidance.en;
-    if (!stage.altTitles[code]) stage.altTitles[code] = stage.altTitles.en;
-  });
-});
-
 // --- Add-on: mock insurance-card extraction (simulated OCR, synthetic data per brief) ---
-// --- Add-on: voice assistant locale mapping (browser Web Speech API) ---
-const SPEECH_LOCALES = {
-  en: "en-IN", hi: "hi-IN", bn: "bn-IN", te: "te-IN", mr: "mr-IN", ta: "ta-IN",
-  ur: "ur-IN", gu: "gu-IN", kn: "kn-IN", ml: "ml-IN", or: "or-IN", pa: "pa-IN",
-  as: "as-IN", ne: "ne-NP",
-};
-
 const MOCK_EXTRACTION = {
   insurer: "Star Health — Family Health Optima",
   policyType: "Family Floater (Individual Coverage)",
@@ -336,71 +300,39 @@ const MOCK_EXTRACTION = {
 
 // --- Add-on: rule-based "Ask Confluence" assistant — grounded in the current patient's real state,
 // so it never invents numbers. Stays within the brief's "decision-support only" boundary. ---
-// --- Add-on: guardrails — enforces the brief's explicit boundary:
-// "must not provide medical diagnoses, clinical treatment recommendations, or binding insurance advice."
-// Checked before any other matching so it can never be bypassed by a cleverly-phrased question.
-const GUARDRAIL_PATTERNS = [
-  {
-    category: "diagnosis",
-    pattern: /diagnos|what.?s wrong with me|do i have (a |an )?\w+|is (this|it) serious|what disease|symptom/i,
-    reply: "I can't provide a medical diagnosis — that needs a doctor who can actually examine the patient. What I can do is tell you what your insurance covers once a diagnosis or treatment plan is in place.",
-  },
-  {
-    category: "treatment",
-    pattern: /should i (take|do|get|have)|which (medicine|drug|treatment)|prescribe|dosage|treatment for|cure for|surgery needed|recommend (a |the )?treatment|is surgery necessary/i,
-    reply: "I can't recommend a clinical treatment or medication — that decision belongs to your doctor. Once a treatment is decided, I can tell you how your policy covers it.",
-  },
-  {
-    category: "binding",
-    pattern: /guarantee|100% (sure|certain|covered|approved)|promise|definitely (covered|approved)|for sure (covered|approved)|will (definitely|certainly) (cover|approve|pay)|is my claim (approved|guaranteed)/i,
-    reply: "I can't guarantee a specific insurance outcome — final approval always depends on your insurer's review of the claim. Based on your policy, here's what's typically expected, but please confirm the final decision with your insurer directly.",
-  },
-];
-
-function checkGuardrails(question) {
-  const q = question.toLowerCase();
-  for (const g of GUARDRAIL_PATTERNS) {
-    if (g.pattern.test(q)) return { text: g.reply, flagged: true, category: g.category };
-  }
-  return null;
-}
-
 function generateAssistantReply(question, profile, stage, hospitals) {
-  const guardrailHit = checkGuardrails(question);
-  if (guardrailHit) return guardrailHit;
-
   const q = question.toLowerCase();
 
   if (/private|upgrade|deluxe/.test(q)) {
     const covered = profile.roomEligibility.join(" or ");
-    return { text: `Your policy covers ${covered}. Upgrading to a room outside that list (like Private or Deluxe) usually means a daily co-pay difference — check the "Possible Alternatives" list on the current stage for an estimate.`, flagged: false };
+    return `Your policy covers ${covered}. Upgrading to a room outside that list (like Private or Deluxe) usually means a daily co-pay difference — check the "Possible Alternatives" list on the current stage for an estimate.`;
   }
   if (/network|out.?of.?network/.test(q)) {
     const outNames = hospitals.filter((h) => h.network === "Out-of-Network").map((h) => h.name);
-    return { text: outNames.length
+    return outNames.length
       ? `Most listed hospitals are in-network. ${outNames.join(", ")} ${outNames.length > 1 ? "are" : "is"} out-of-network — that typically means reimbursement instead of cashless settlement.`
-      : `All currently listed hospitals are in-network, so cashless settlement should apply.`, flagged: false };
+      : `All currently listed hospitals are in-network, so cashless settlement should apply.`;
   }
   if (/cost|price|how much|expensive|out.?of.?pocket/.test(q)) {
     const cheapest = [...hospitals].sort((a, b) => a.indicativeCost - b.indicativeCost)[0];
-    return { text: `Your coverage limit is ${formatRupees(profile.coverageLimit)}. Indicative costs range up to ${formatRupees(Math.max(...hospitals.map((h) => h.indicativeCost)))}, with ${cheapest.name} the lowest at ~${formatRupees(cheapest.indicativeCost)}.`, flagged: false };
+    return `Your coverage limit is ${formatRupees(profile.coverageLimit)}. Indicative costs range up to ${formatRupees(Math.max(...hospitals.map((h) => h.indicativeCost)))}, with ${cheapest.name} the lowest at ~${formatRupees(cheapest.indicativeCost)}.`;
   }
   if (/exclu|not covered|won.?t cover|doesn.?t cover/.test(q)) {
-    return { text: `Your policy explicitly excludes: ${profile.exclusions.join(", ")}. Anything in that list will likely mean out-of-pocket expense.`, flagged: false };
+    return `Your policy explicitly excludes: ${profile.exclusions.join(", ")}. Anything in that list will likely mean out-of-pocket expense.`;
   }
   if (/transfer/.test(q)) {
     const t = stage.alternatives.find((a) => /transfer/i.test(a.title));
-    return { text: t ? `${t.title}: ${t.detail}` : `A hospital transfer isn't typically listed as an alternative at the ${stage.label} stage — check the Admission stage for transfer options.`, flagged: false };
+    return t ? `${t.title}: ${t.detail}` : `A hospital transfer isn't typically listed as an alternative at the ${stage.label} stage — check the Admission stage for transfer options.`;
   }
-  if (/admission|admit/.test(q)) return { text: STAGE_I18N.admission.guidance.en, flagged: false };
-  if (/investigat|which test|lab test/.test(q)) return { text: STAGE_I18N.investigation.guidance.en, flagged: false };
-  if (/procedure|consumable|implant/.test(q)) return { text: STAGE_I18N.procedure.guidance.en, flagged: false };
-  if (/recovery|discharge/.test(q)) return { text: STAGE_I18N.recovery.guidance.en, flagged: false };
+  if (/admission|admit/.test(q)) return `${STAGE_I18N.admission.guidance.en}`;
+  if (/investigat|test|diagnos/.test(q)) return `${STAGE_I18N.investigation.guidance.en}`;
+  if (/procedure|surgery|consumable|implant/.test(q)) return `${STAGE_I18N.procedure.guidance.en}`;
+  if (/recovery|discharge/.test(q)) return `${STAGE_I18N.recovery.guidance.en}`;
   if (/coverage|limit|how much covered/.test(q)) {
-    return { text: `You're covered up to ${formatRupees(profile.coverageLimit)} under ${profile.insurer} (${profile.policyType}).`, flagged: false };
+    return `You're covered up to ${formatRupees(profile.coverageLimit)} under ${profile.insurer} (${profile.policyType}).`;
   }
 
-  return { text: `Right now you're at the ${stage.label} stage: ${stage.guidance} You can also ask me about hospital networks, costs, exclusions, or transfer options.`, flagged: false };
+  return `Right now you're at the ${stage.label} stage: ${stage.guidance} You can also ask me about hospital networks, costs, exclusions, or transfer options.`;
 }
 
 export default function ConfluenceDashboard() {
@@ -416,10 +348,6 @@ export default function ConfluenceDashboard() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [chatTyping, setChatTyping] = useState(false);
-  const [chatAttachment, setChatAttachment] = useState(null);
-  const [listening, setListening] = useState(false);
-  const [speakingIndex, setSpeakingIndex] = useState(null);
-  const recognitionRef = React.useRef(null);
   const [weights, setWeights] = useState({ clinical: 45, policy: 30, resource: 25 });
   const [expandedId, setExpandedId] = useState("P-104");
   const [filter, setFilter] = useState("all");
@@ -473,84 +401,18 @@ export default function ConfluenceDashboard() {
     }, 1200);
   };
 
-  // --- Add-on: Ask Confluence assistant (now with file attachment + voice support) ---
+  // --- Add-on: Ask Confluence assistant ---
   const handleSendChat = () => {
     const question = chatInput.trim();
-    if (!question && !chatAttachment) return;
-
-    const attachment = chatAttachment;
-    setChatMessages((prev) => [...prev, { role: "user", text: question, attachment }]);
+    if (!question) return;
+    setChatMessages((prev) => [...prev, { role: "user", text: question }]);
     setChatInput("");
-    setChatAttachment(null);
     setChatTyping(true);
-
     setTimeout(() => {
-      let reply;
-      if (attachment && !question) {
-        reply = { text: `I see you've attached "${attachment.name}". I can't read attachment contents in this preview yet, but describe what's in it or ask a specific question and I'll help using your policy details.`, flagged: false };
-      } else if (attachment && question) {
-        const base = generateAssistantReply(question, insurance, JOURNEY_STAGES[journeyStage], HOSPITALS);
-        reply = { text: `Regarding "${attachment.name}" — ${base.text}`, flagged: base.flagged };
-      } else {
-        reply = generateAssistantReply(question, insurance, JOURNEY_STAGES[journeyStage], HOSPITALS);
-      }
-      setChatMessages((prev) => [...prev, { role: "assistant", text: reply.text, flagged: reply.flagged }]);
+      const reply = generateAssistantReply(question, insurance, JOURNEY_STAGES[journeyStage], HOSPITALS);
+      setChatMessages((prev) => [...prev, { role: "assistant", text: reply }]);
       setChatTyping(false);
     }, 550);
-  };
-
-  const handleChatAttachFile = (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    setChatAttachment({ name: file.name, size: file.size });
-    e.target.value = "";
-  };
-
-  const removeChatAttachment = () => setChatAttachment(null);
-
-  // --- Add-on: voice input via the browser's Web Speech API (no external service/key needed) ---
-  const speechSupported = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
-
-  const toggleListening = () => {
-    if (!speechSupported) return;
-    if (listening) {
-      recognitionRef.current && recognitionRef.current.stop();
-      setListening(false);
-      return;
-    }
-    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recog = new SpeechRecognitionCtor();
-    recog.lang = SPEECH_LOCALES[lang] || "en-IN";
-    recog.interimResults = false;
-    recog.maxAlternatives = 1;
-    recog.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setChatInput((prev) => (prev ? prev + " " + transcript : transcript));
-    };
-    recog.onend = () => setListening(false);
-    recog.onerror = () => setListening(false);
-    recognitionRef.current = recog;
-    setListening(true);
-    recog.start();
-  };
-
-  // --- Add-on: text-to-speech playback of assistant replies ---
-  const ttsSupported = typeof window !== "undefined" && "speechSynthesis" in window;
-
-  const toggleSpeak = (index, text) => {
-    if (!ttsSupported) return;
-    if (speakingIndex === index) {
-      window.speechSynthesis.cancel();
-      setSpeakingIndex(null);
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = SPEECH_LOCALES[lang] || "en-IN";
-    utter.onend = () => setSpeakingIndex(null);
-    utter.onerror = () => setSpeakingIndex(null);
-    setSpeakingIndex(index);
-    window.speechSynthesis.speak(utter);
   };
 
   const handleChatKeyDown = (e) => {
@@ -992,6 +854,12 @@ export default function ConfluenceDashboard() {
         .alt-item-detail { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
 
         .nav-header-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .lang-switch { display: flex; gap: 4px; flex-wrap: wrap; }
+        .lang-btn {
+          font-family: inherit; font-size: 11px; font-weight: 600; padding: 6px 10px;
+          border-radius: 7px; cursor: pointer; background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+        }
+        .lang-btn.active { background: var(--gold); border-color: var(--gold); color: #241a03; }
 
         .upload-block { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
         .upload-btn {
@@ -1023,57 +891,6 @@ export default function ConfluenceDashboard() {
           border-bottom-left-radius: 3px;
         }
         .chat-bubble.typing { color: var(--muted); font-weight: 700; letter-spacing: 2px; }
-
-        .guardrail-badge {
-          margin-left: auto; display: flex; align-items: center; gap: 5px;
-          font-size: 9.5px; font-weight: 600; text-transform: none; letter-spacing: 0.2px;
-          color: var(--critical); background: rgba(240,85,95,0.1); border: 1px solid rgba(240,85,95,0.3);
-          padding: 4px 9px; border-radius: 20px; white-space: nowrap;
-        }
-        .chat-bubble.flagged {
-          background: rgba(240,85,95,0.08); border: 1px solid rgba(240,85,95,0.35); color: var(--text);
-        }
-        .flagged-label {
-          display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700;
-          text-transform: uppercase; letter-spacing: 0.4px; color: var(--critical); margin-bottom: 5px;
-        }
-
-        .chat-file-chip {
-          display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px;
-          background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.15);
-          padding: 3px 8px; border-radius: 6px; margin-bottom: 6px;
-        }
-        .chat-speak-btn {
-          background: none; border: none; cursor: pointer; padding: 0; margin-left: 8px;
-          vertical-align: middle; opacity: 0.7;
-        }
-        .chat-speak-btn:hover { opacity: 1; }
-
-        .chat-attachment-preview {
-          display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--gold);
-          background: rgba(240,180,41,0.08); border: 1px solid rgba(240,180,41,0.3);
-          border-radius: 7px; padding: 6px 10px; margin-bottom: 8px;
-        }
-        .chat-attachment-remove {
-          margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px;
-        }
-
-        .chat-icon-btn {
-          display: flex; align-items: center; justify-content: center;
-          width: 38px; height: 38px; flex-shrink: 0; border-radius: 8px; cursor: pointer;
-          background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
-        }
-        .chat-icon-btn:hover { color: var(--text); border-color: var(--policy); }
-        .chat-icon-btn.listening {
-          color: #fff; background: var(--critical); border-color: var(--critical);
-          animation: micPulse 1.1s ease infinite;
-        }
-        @keyframes micPulse {
-          0% { box-shadow: 0 0 0 0 rgba(240,85,95,0.5); }
-          70% { box-shadow: 0 0 0 8px rgba(240,85,95,0); }
-          100% { box-shadow: 0 0 0 0 rgba(240,85,95,0); }
-        }
-
         .chat-input-row { display: flex; gap: 8px; }
         .chat-input {
           flex: 1; background: var(--panel2); border: 1px solid var(--border); color: var(--text);
@@ -1299,18 +1116,12 @@ export default function ConfluenceDashboard() {
               </div>
             </div>
             <div className="nav-header-controls">
-              <div className="patient-select-wrap">
-                <Languages size={13} />
-                <span className="patient-select-label">Select Language</span>
-                <select
-                  className="patient-select"
-                  value={lang}
-                  onChange={(e) => setLang(e.target.value)}
-                >
-                  {LANG_OPTIONS.map((l) => (
-                    <option key={l.code} value={l.code}>{l.label}</option>
-                  ))}
-                </select>
+              <div className="lang-switch">
+                {LANG_OPTIONS.map((l) => (
+                  <button key={l.code} className={"lang-btn" + (lang === l.code ? " active" : "")} onClick={() => setLang(l.code)}>
+                    {l.label}
+                  </button>
+                ))}
               </div>
               <div className="patient-select-wrap">
                 <span className="patient-select-label">{UI_TEXT[lang].viewingFor}</span>
@@ -1499,57 +1310,21 @@ export default function ConfluenceDashboard() {
           </div>
 
           <div className="panel-like chat-panel">
-            <div className="sidebar-title">
-              <MessageCircle size={14} /> {UI_TEXT[lang].askTitle}
-              <span className="guardrail-badge"><ShieldAlert size={11} /> No diagnosis · No binding advice</span>
-            </div>
+            <div className="sidebar-title"><MessageCircle size={14} /> {UI_TEXT[lang].askTitle}</div>
             <div className="chat-window">
               {chatMessages.length === 0 && (
                 <div className="chat-intro">{UI_TEXT[lang].askIntro}</div>
               )}
               {chatMessages.map((m, i) => (
-                <div key={i} className={"chat-bubble " + m.role + (m.flagged ? " flagged" : "")}>
-                  {m.flagged && <div className="flagged-label"><ShieldAlert size={11} /> Outside decision-support scope</div>}
-                  {m.attachment && (
-                    <div className="chat-file-chip"><Paperclip size={11} /> {m.attachment.name}</div>
-                  )}
-                  {m.text}
-                  {m.role === "assistant" && ttsSupported && (
-                    <button className="chat-speak-btn" onClick={() => toggleSpeak(i, m.text)} title="Listen">
-                      <Volume2 size={12} color={speakingIndex === i ? "var(--policy)" : undefined} />
-                    </button>
-                  )}
-                </div>
+                <div key={i} className={"chat-bubble " + m.role}>{m.text}</div>
               ))}
               {chatTyping && <div className="chat-bubble assistant typing">···</div>}
             </div>
-
-            {chatAttachment && (
-              <div className="chat-attachment-preview">
-                <Paperclip size={12} /> {chatAttachment.name}
-                <button className="chat-attachment-remove" onClick={removeChatAttachment}>✕</button>
-              </div>
-            )}
-
             <div className="chat-input-row">
-              <label className="chat-icon-btn" title="Attach a file">
-                <Paperclip size={15} />
-                <input type="file" accept="image/*,.pdf,.doc,.docx" onChange={handleChatAttachFile} hidden />
-              </label>
-              {speechSupported && (
-                <button
-                  className={"chat-icon-btn" + (listening ? " listening" : "")}
-                  onClick={toggleListening}
-                  title={listening ? "Stop listening" : "Speak your question"}
-                  type="button"
-                >
-                  <Mic size={15} />
-                </button>
-              )}
               <input
                 className="chat-input"
                 type="text"
-                placeholder={listening ? "Listening…" : UI_TEXT[lang].askPlaceholder}
+                placeholder={UI_TEXT[lang].askPlaceholder}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={handleChatKeyDown}
