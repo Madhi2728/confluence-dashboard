@@ -1,41 +1,30 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, MessageCircle, Send, Languages, ShieldAlert, Mic, Volume2, Paperclip } from "lucide-react";
+import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, Languages } from "lucide-react";
+import AskConfluence from "./AskConfluence.jsx";
+import { formatRupees } from "./format.js";
+
+// --- Policy-match threshold below which staff should confirm coverage with the insurer desk ---
+const POLICY_MATCH_THRESHOLD = 70;
 
 const BASE_PATIENTS = [
-  { id: "P-104", name: "R. Sharma", age: 62, sex: "M", condition: "Acute Myocardial Infarction", clinicalRisk: 92, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 88, bed: "Cardiac ICU", resourceFit: 40, wait: "6 min", estSavings: 185000, timeSavedMin: 34 },
-  { id: "P-211", name: "A. Fatima", age: 29, sex: "F", condition: "High-Risk Pregnancy, 34wk", clinicalRisk: 78, scheme: "Janani Suraksha Yojana", policyMatch: 92, bed: "Maternity ICU", resourceFit: 25, wait: "10 min", estSavings: 42000, timeSavedMin: 22 },
-  { id: "P-098", name: "T. Joshi", age: 5, sex: "M", condition: "Febrile Seizure", clinicalRisk: 70, scheme: "CGHS", policyMatch: 90, bed: "Pediatric ICU", resourceFit: 20, wait: "8 min", estSavings: 15000, timeSavedMin: 26 },
-  { id: "P-176", name: "M. Reddy", age: 71, sex: "M", condition: "Acute Renal Failure", clinicalRisk: 85, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 60, bed: "Dialysis Unit", resourceFit: 35, wait: "15 min", estSavings: 96000, timeSavedMin: 19 },
-  { id: "P-233", name: "S. Iyer", age: 8, sex: "F", condition: "Severe Pneumonia", clinicalRisk: 68, scheme: "CGHS", policyMatch: 95, bed: "Pediatric Ward", resourceFit: 80, wait: "22 min", estSavings: 8000, timeSavedMin: 8 },
-  { id: "P-150", name: "P. Nair", age: 58, sex: "F", condition: "Oncology — Chemo Cycle 3", clinicalRisk: 60, scheme: "State Health Scheme", policyMatch: 45, bed: "Day-Care Oncology", resourceFit: 50, wait: "35 min", estSavings: 54000, timeSavedMin: 5 },
-  { id: "P-087", name: "D. Singh", age: 34, sex: "M", condition: "Post-Op Ortho Trauma", clinicalRisk: 52, scheme: "ESIC", policyMatch: 70, bed: "Ortho Ward", resourceFit: 65, wait: "40 min", estSavings: 21000, timeSavedMin: 4 },
-  { id: "P-192", name: "K. Verma", age: 45, sex: "M", condition: "Diabetic Foot Ulcer", clinicalRisk: 40, scheme: "MediClaim+ (Private)", policyMatch: 55, bed: "General Ward", resourceFit: 90, wait: "1 hr 10 min", estSavings: 3000, timeSavedMin: 2 },
+  { id: "P-104", name: "R. Sharma", age: 62, sex: "M", condition: "Acute Myocardial Infarction", clinicalRisk: 92, scheme: "Ayushman Bharat (PM-JAY)", network: "In-Network", policyMatch: 88, bed: "Cardiac ICU", resourceFit: 40, wait: "6 min", estSavings: 185000, timeSavedMin: 34 },
+  { id: "P-211", name: "A. Fatima", age: 29, sex: "F", condition: "High-Risk Pregnancy, 34wk", clinicalRisk: 78, scheme: "Janani Suraksha Yojana", network: "In-Network", policyMatch: 92, bed: "Maternity ICU", resourceFit: 25, wait: "10 min", estSavings: 42000, timeSavedMin: 22 },
+  { id: "P-098", name: "T. Joshi", age: 5, sex: "M", condition: "Febrile Seizure", clinicalRisk: 70, scheme: "CGHS", network: "In-Network", policyMatch: 90, bed: "Pediatric ICU", resourceFit: 20, wait: "8 min", estSavings: 15000, timeSavedMin: 26 },
+  { id: "P-176", name: "M. Reddy", age: 71, sex: "M", condition: "Acute Renal Failure", clinicalRisk: 85, scheme: "Ayushman Bharat (PM-JAY)", network: "In-Network", policyMatch: 60, bed: "Dialysis Unit", resourceFit: 35, wait: "15 min", estSavings: 96000, timeSavedMin: 19 },
+  { id: "P-233", name: "S. Iyer", age: 8, sex: "F", condition: "Severe Pneumonia", clinicalRisk: 68, scheme: "CGHS", network: "In-Network", policyMatch: 95, bed: "Pediatric Ward", resourceFit: 80, wait: "22 min", estSavings: 8000, timeSavedMin: 8 },
+  { id: "P-150", name: "P. Nair", age: 58, sex: "F", condition: "Oncology — Chemo Cycle 3", clinicalRisk: 60, scheme: "State Health Scheme", network: "Out-of-Network", policyMatch: 45, bed: "Day-Care Oncology", resourceFit: 50, wait: "35 min", estSavings: 54000, timeSavedMin: 5 },
+  { id: "P-087", name: "D. Singh", age: 34, sex: "M", condition: "Post-Op Ortho Trauma", clinicalRisk: 52, scheme: "ESIC", network: "In-Network", policyMatch: 70, bed: "Ortho Ward", resourceFit: 65, wait: "40 min", estSavings: 21000, timeSavedMin: 4 },
+  { id: "P-192", name: "K. Verma", age: 45, sex: "M", condition: "Diabetic Foot Ulcer", clinicalRisk: 40, scheme: "MediClaim+ (Private)", network: "Out-of-Network", policyMatch: 55, bed: "General Ward", resourceFit: 90, wait: "1 hr 10 min", estSavings: 3000, timeSavedMin: 2 },
 ];
 
 const EVENT_PATIENT_POOL = [
-  { name: "Incoming Trauma Case", age: 47, sex: "M", condition: "Multi-Trauma (RTA)", clinicalRisk: 96, scheme: "Ayushman Bharat (PM-JAY)", policyMatch: 82, bed: "Trauma ICU", resourceFit: 30, wait: "Just arrived", estSavings: 150000, timeSavedMin: 30 },
-  { name: "Incoming Cardiac Case", age: 55, sex: "F", condition: "Unstable Angina", clinicalRisk: 89, scheme: "CGHS", policyMatch: 87, bed: "Cardiac ICU", resourceFit: 28, wait: "Just arrived", estSavings: 132000, timeSavedMin: 27 },
+  { name: "Incoming Trauma Case", age: 47, sex: "M", condition: "Multi-Trauma (RTA)", clinicalRisk: 96, scheme: "Ayushman Bharat (PM-JAY)", network: "In-Network", policyMatch: 82, bed: "Trauma ICU", resourceFit: 30, wait: "Just arrived", estSavings: 150000, timeSavedMin: 30 },
+  { name: "Incoming Cardiac Case", age: 55, sex: "F", condition: "Unstable Angina", clinicalRisk: 89, scheme: "CGHS", network: "In-Network", policyMatch: 87, bed: "Cardiac ICU", resourceFit: 28, wait: "Just arrived", estSavings: 132000, timeSavedMin: 27 },
 ];
 
 const priorityOf = (risk) => (risk >= 75 ? "critical" : risk >= 45 ? "moderate" : "stable");
 const priorityColor = { critical: "var(--critical)", moderate: "var(--moderate)", stable: "var(--stable)" };
 const priorityLabel = { critical: "Critical", moderate: "Moderate", stable: "Stable" };
-
-function rationale(p, w) {
-  const factors = [
-    { k: "clinical", v: p.clinicalRisk, w: w.clinical, text: `elevated clinical risk (${p.clinicalRisk})` },
-    { k: "policy", v: p.policyMatch, w: w.policy, text: `strong ${p.scheme} eligibility (${p.policyMatch}% match)` },
-    { k: "resource", v: p.resourceFit, w: w.resource, text: `${p.bed} capacity fit (${p.resourceFit}%)` },
-  ];
-  const top = [...factors].sort((a, b) => b.v * b.w - a.v * a.w)[0];
-  return `Driven primarily by ${top.text}.`;
-}
-
-function formatRupees(n) {
-  if (n >= 100000) return `₹${(n / 100000).toFixed(2)}L`;
-  if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
-  return `₹${n}`;
-}
 
 // --- Insurance Navigator: mock data (all synthetic, no real patient/insurer data) ---
 const SCHEME_TEMPLATES = {
@@ -75,15 +64,23 @@ function hospitalMatch(hospital, profile) {
   score += Math.min(45, roomOverlap.length * 22);
   score = Math.min(100, score);
 
-  let reason;
+  let reasonKey, rooms;
   if (hospital.network === "In-Network" && roomOverlap.length > 0) {
-    reason = `In-network with ${roomOverlap.join(" & ")} covered under your policy — cashless settlement expected.`;
+    reasonKey = "hospitalReasonInNetCovered";
+    rooms = roomOverlap.join(" & ");
   } else if (hospital.network === "In-Network") {
-    reason = `In-network, but available rooms (${hospital.roomTypes.join(", ")}) fall outside your covered categories — a co-pay may apply.`;
+    reasonKey = "hospitalReasonInNetUncovered";
+    rooms = hospital.roomTypes.join(", ");
   } else {
-    reason = `Out-of-network — this typically requires reimbursement rather than cashless settlement.`;
+    reasonKey = "hospitalReasonOutOfNetwork";
+    rooms = "";
   }
-  return { score, reason };
+  return { score, reasonKey, rooms };
+}
+
+// Fills the {rooms} placeholder in a localized hospital-match note.
+function hospitalReasonText(t, match) {
+  return t(match.reasonKey).replace("{rooms}", match.rooms);
 }
 
 const JOURNEY_STAGES = [
@@ -126,31 +123,15 @@ const JOURNEY_STAGES = [
   },
 ];
 
-// --- Add-on: multi-language support (English / Tamil / Hindi) ---
+// --- Multi-language support. Every code listed here has a complete UI_TEXT and
+// STAGE_I18N entry below — the dropdown only offers languages we actually ship
+// strings for, so a selection can never silently fall back to English. ---
 const LANG_OPTIONS = [
   { code: "en", label: "English" },
-  { code: "hi", label: "हिंदी (Hindi)" },
-  { code: "bn", label: "বাংলা (Bengali)" },
-  { code: "te", label: "తెలుగు (Telugu)" },
-  { code: "mr", label: "मराठी (Marathi)" },
   { code: "ta", label: "தமிழ் (Tamil)" },
-  { code: "ur", label: "اردو (Urdu)" },
-  { code: "gu", label: "ગુજરાતી (Gujarati)" },
+  { code: "hi", label: "हिंदी (Hindi)" },
   { code: "kn", label: "ಕನ್ನಡ (Kannada)" },
-  { code: "ml", label: "മലയാളം (Malayalam)" },
-  { code: "or", label: "ଓଡ଼ିଆ (Odia)" },
-  { code: "pa", label: "ਪੰਜਾਬੀ (Punjabi)" },
-  { code: "as", label: "অসমীয়া (Assamese)" },
-  { code: "mai", label: "मैथिली (Maithili)" },
-  { code: "sat", label: "Santali" },
-  { code: "ks", label: "کٲشُر (Kashmiri)" },
-  { code: "ne", label: "नेपाली (Nepali)" },
-  { code: "sd", label: "سنڌي (Sindhi)" },
-  { code: "kok", label: "कोंकणी (Konkani)" },
-  { code: "doi", label: "डोगरी (Dogri)" },
-  { code: "mni", label: "মৈতৈলোন্ (Manipuri)" },
-  { code: "sa", label: "संस्कृतम् (Sanskrit)" },
-  { code: "brx", label: "बड़ो (Bodo)" },
+  { code: "te", label: "తెలుగు (Telugu)" },
 ];
 
 const UI_TEXT = {
@@ -169,6 +150,13 @@ const UI_TEXT = {
     extractedNote: "Extracted from your uploaded document — review and save below.",
     askTitle: "Ask Confluence", askPlaceholder: "Ask about coverage, rooms, or next steps…", send: "Send",
     askIntro: "Ask me anything about your coverage, hospitals, or care journey.",
+    selectLanguage: "Select Language", insuranceGuidance: "Insurance Guidance", matchLabel: "match",
+    inNetwork: "In-Network", outOfNetwork: "Out-of-Network",
+    formInsurer: "Insurer / Scheme", formPolicyType: "Policy Type", formCoverageLimit: "Coverage Limit (₹)",
+    formRoomEligibility: "Room Eligibility", formExclusions: "Exclusions (comma-separated)",
+    hospitalReasonInNetCovered: "In-network with {rooms} covered under your policy — cashless settlement expected.",
+    hospitalReasonInNetUncovered: "In-network, but the available rooms ({rooms}) fall outside your covered categories — a co-pay may apply.",
+    hospitalReasonOutOfNetwork: "Out-of-network — this typically needs a reimbursement claim rather than cashless settlement.",
   },
   ta: {
     opsTab: "அனுமதி செயல்பாடுகள்", navTab: "காப்பீட்டு வழிகாட்டி",
@@ -185,6 +173,13 @@ const UI_TEXT = {
     extractedNote: "உங்கள் ஆவணத்திலிருந்து பிரித்தெடுக்கப்பட்டது — கீழே சரிபார்த்து சேமிக்கவும்.",
     askTitle: "Ask Confluence", askPlaceholder: "கவரேஜ், அறைகள் அல்லது அடுத்த படிகள் பற்றி கேளுங்கள்…", send: "அனுப்பு",
     askIntro: "உங்கள் கவரேஜ், மருத்துவமனைகள் அல்லது சிகிச்சைப் பயணம் பற்றி என்னிடம் கேளுங்கள்.",
+    selectLanguage: "மொழியைத் தேர்ந்தெடுக்கவும்", insuranceGuidance: "காப்பீட்டு வழிகாட்டல்", matchLabel: "பொருத்தம்",
+    inNetwork: "நெட்வொர்க்கில்", outOfNetwork: "நெட்வொர்க்கிற்கு வெளியே",
+    formInsurer: "காப்பீட்டாளர் / திட்டம்", formPolicyType: "பாலிசி வகை", formCoverageLimit: "கவரேஜ் வரம்பு (₹)",
+    formRoomEligibility: "அறை தகுதி", formExclusions: "விலக்குகள் (கமாவால் பிரிக்கவும்)",
+    hospitalReasonInNetCovered: "நெட்வொர்க்கில் உள்ளது; {rooms} உங்கள் பாலிசியில் அடங்கும் — cashless தீர்வு எதிர்பார்க்கப்படுகிறது.",
+    hospitalReasonInNetUncovered: "நெட்வொர்க்கில் உள்ளது, ஆனால் இருக்கும் அறைகள் ({rooms}) உங்கள் கவரேஜ் வகைகளுக்கு வெளியே — co-pay பொருந்தக்கூடும்.",
+    hospitalReasonOutOfNetwork: "நெட்வொர்க்கிற்கு வெளியே — இதற்கு பொதுவாக cashless அல்லாமல் reimbursement கோரிக்கை தேவைப்படும்.",
   },
   hi: {
     opsTab: "प्रवेश संचालन", navTab: "बीमा नेविगेटर",
@@ -201,6 +196,13 @@ const UI_TEXT = {
     extractedNote: "आपके अपलोड किए गए दस्तावेज़ से निकाला गया — नीचे समीक्षा करें और सहेजें।",
     askTitle: "Ask Confluence", askPlaceholder: "कवरेज, कमरों या अगले चरणों के बारे में पूछें…", send: "भेजें",
     askIntro: "अपनी कवरेज, अस्पतालों या उपचार यात्रा के बारे में मुझसे कुछ भी पूछें।",
+    selectLanguage: "भाषा चुनें", insuranceGuidance: "बीमा मार्गदर्शन", matchLabel: "मैच",
+    inNetwork: "नेटवर्क में", outOfNetwork: "नेटवर्क से बाहर",
+    formInsurer: "बीमाकर्ता / योजना", formPolicyType: "पॉलिसी प्रकार", formCoverageLimit: "कवरेज सीमा (₹)",
+    formRoomEligibility: "कमरा पात्रता", formExclusions: "अपवर्जन (अल्पविराम से अलग)",
+    hospitalReasonInNetCovered: "नेटवर्क में है और {rooms} आपकी पॉलिसी में कवर है — cashless सेटलमेंट की उम्मीद है।",
+    hospitalReasonInNetUncovered: "नेटवर्क में है, लेकिन उपलब्ध कमरे ({rooms}) आपकी कवर श्रेणियों से बाहर हैं — co-pay लग सकता है।",
+    hospitalReasonOutOfNetwork: "नेटवर्क से बाहर — इसके लिए आमतौर पर cashless के बजाय reimbursement दावा करना पड़ता है।",
   },
   kn: {
     opsTab: "ಪ್ರವೇಶ ಕಾರ್ಯಾಚರಣೆಗಳು", navTab: "ವಿಮಾ ನ್ಯಾವಿಗೇಟರ್",
@@ -217,6 +219,13 @@ const UI_TEXT = {
     extractedNote: "ನಿಮ್ಮ ಅಪ್‌ಲೋಡ್ ಮಾಡಿದ ದಾಖಲೆಯಿಂದ ಹೊರತೆಗೆಯಲಾಗಿದೆ — ಕೆಳಗೆ ಪರಿಶೀಲಿಸಿ ಮತ್ತು ಉಳಿಸಿ.",
     askTitle: "Ask Confluence", askPlaceholder: "ಕವರೇಜ್, ಕೋಣೆಗಳು ಅಥವಾ ಮುಂದಿನ ಹಂತಗಳ ಬಗ್ಗೆ ಕೇಳಿ…", send: "ಕಳುಹಿಸಿ",
     askIntro: "ನಿಮ್ಮ ಕವರೇಜ್, ಆಸ್ಪತ್ರೆಗಳು ಅಥವಾ ಆರೈಕೆ ಪ್ರಯಾಣದ ಬಗ್ಗೆ ನನ್ನನ್ನು ಏನಾದರೂ ಕೇಳಿ.",
+    selectLanguage: "ಭಾಷೆ ಆಯ್ಕೆಮಾಡಿ", insuranceGuidance: "ವಿಮಾ ಮಾರ್ಗದರ್ಶನ", matchLabel: "ಹೊಂದಾಣಿಕೆ",
+    inNetwork: "ನೆಟ್‌ವರ್ಕ್‌ನಲ್ಲಿ", outOfNetwork: "ನೆಟ್‌ವರ್ಕ್‌ನ ಹೊರಗೆ",
+    formInsurer: "ವಿಮಾದಾರ / ಯೋಜನೆ", formPolicyType: "ಪಾಲಿಸಿ ಪ್ರಕಾರ", formCoverageLimit: "ಕವರೇಜ್ ಮಿತಿ (₹)",
+    formRoomEligibility: "ಕೋಣೆ ಅರ್ಹತೆ", formExclusions: "ಹೊರಗಿಡುವಿಕೆಗಳು (ಅಲ್ಪವಿರಾಮದಿಂದ ಬೇರ್ಪಡಿಸಿ)",
+    hospitalReasonInNetCovered: "ನೆಟ್‌ವರ್ಕ್‌ನಲ್ಲಿದೆ; {rooms} ನಿಮ್ಮ ಪಾಲಿಸಿಯಲ್ಲಿ ಒಳಗೊಂಡಿದೆ — cashless ಇತ್ಯರ್ಥ ನಿರೀಕ್ಷಿತ.",
+    hospitalReasonInNetUncovered: "ನೆಟ್‌ವರ್ಕ್‌ನಲ್ಲಿದೆ, ಆದರೆ ಲಭ್ಯವಿರುವ ಕೋಣೆಗಳು ({rooms}) ನಿಮ್ಮ ಕವರೇಜ್ ವರ್ಗಗಳ ಹೊರಗಿವೆ — co-pay ಅನ್ವಯಿಸಬಹುದು.",
+    hospitalReasonOutOfNetwork: "ನೆಟ್‌ವರ್ಕ್‌ನ ಹೊರಗೆ — ಇದಕ್ಕೆ ಸಾಮಾನ್ಯವಾಗಿ cashless ಬದಲು reimbursement ಕ್ಲೈಮ್ ಬೇಕಾಗುತ್ತದೆ.",
   },
   te: {
     opsTab: "ప్రవేశ కార్యకలాపాలు", navTab: "బీమా నావిగేటర్",
@@ -233,6 +242,13 @@ const UI_TEXT = {
     extractedNote: "మీరు అప్‌లోడ్ చేసిన పత్రం నుండి సేకరించబడింది — దిగువన సమీక్షించి సేవ్ చేయండి.",
     askTitle: "Ask Confluence", askPlaceholder: "కవరేజ్, గదులు లేదా తదుపరి దశల గురించి అడగండి…", send: "పంపండి",
     askIntro: "మీ కవరేజ్, ఆసుపత్రులు లేదా సంరక్షణ ప్రయాణం గురించి నన్ను ఏదైనా అడగండి.",
+    selectLanguage: "భాషను ఎంచుకోండి", insuranceGuidance: "బీమా మార్గదర్శకం", matchLabel: "మ్యాచ్",
+    inNetwork: "నెట్‌వర్క్‌లో", outOfNetwork: "నెట్‌వర్క్ వెలుపల",
+    formInsurer: "బీమాదారు / పథకం", formPolicyType: "పాలసీ రకం", formCoverageLimit: "కవరేజ్ పరిమితి (₹)",
+    formRoomEligibility: "గది అర్హత", formExclusions: "మినహాయింపులు (కామాతో వేరు చేయండి)",
+    hospitalReasonInNetCovered: "నెట్‌వర్క్‌లో ఉంది; {rooms} మీ పాలసీలో కవర్ అవుతుంది — cashless సెటిల్‌మెంట్ ఆశించవచ్చు.",
+    hospitalReasonInNetUncovered: "నెట్‌వర్క్‌లో ఉంది, కానీ అందుబాటులో ఉన్న గదులు ({rooms}) మీ కవరేజ్ వర్గాలకు వెలుపల ఉన్నాయి — co-pay వర్తించవచ్చు.",
+    hospitalReasonOutOfNetwork: "నెట్‌వర్క్ వెలుపల — దీనికి సాధారణంగా cashless కాకుండా reimbursement క్లెయిమ్ అవసరం.",
   },
 };
 
@@ -253,6 +269,33 @@ const STAGE_I18N = {
       kn: ["ಪ್ರೈವೇಟ್ ಕೋಣೆಗೆ ಅಪ್‌ಗ್ರೇಡ್ ಮಾಡಿ", "ಜನರಲ್ ವಾರ್ಡ್‌ಗೆ ಡೌನ್‌ಗ್ರೇಡ್ ಮಾಡಿ", "ಬೇರೆ ನೆಟ್‌ವರ್ಕ್ ಆಸ್ಪತ್ರೆಗೆ ವರ್ಗಾಯಿಸಿ"],
       te: ["ప్రైవేట్ గదికి అప్‌గ్రేడ్ చేయండి", "జనరల్ వార్డుకు డౌన్‌గ్రేడ్ చేయండి", "వేరే నెట్‌వర్క్ ఆసుపత్రికి బదిలీ చేయండి"],
     },
+    altDetails: {
+      en: [
+        "Approx. ₹1,800/day extra co-pay beyond your covered room category.",
+        "Fully cashless under your policy — zero extra cost.",
+        "If your preferred room type isn't available here, other in-network hospitals nearby may have capacity today.",
+      ],
+      ta: [
+        "உங்கள் கவர் அறை வகையைத் தாண்டி தினமும் சுமார் ₹1,800 கூடுதல் co-pay.",
+        "உங்கள் பாலிசியில் முழுமையாக cashless — கூடுதல் செலவு இல்லை.",
+        "நீங்கள் விரும்பும் அறை வகை இங்கு கிடைக்கவில்லை எனில், அருகிலுள்ள மற்ற நெட்வொர்க் மருத்துவமனைகளில் இன்று இடம் இருக்கக்கூடும்.",
+      ],
+      hi: [
+        "आपकी कवर कमरा श्रेणी से ऊपर लगभग ₹1,800/दिन अतिरिक्त co-pay।",
+        "आपकी पॉलिसी में पूरी तरह cashless — कोई अतिरिक्त खर्च नहीं।",
+        "यदि आपका पसंदीदा कमरा यहाँ उपलब्ध नहीं है, तो आस-पास के अन्य नेटवर्क अस्पतालों में आज जगह हो सकती है।",
+      ],
+      kn: [
+        "ನಿಮ್ಮ ಕವರ್ ಕೋಣೆ ವರ್ಗವನ್ನು ಮೀರಿ ದಿನಕ್ಕೆ ಸುಮಾರು ₹1,800 ಹೆಚ್ಚುವರಿ co-pay.",
+        "ನಿಮ್ಮ ಪಾಲಿಸಿಯಲ್ಲಿ ಸಂಪೂರ್ಣ cashless — ಹೆಚ್ಚುವರಿ ವೆಚ್ಚ ಇಲ್ಲ.",
+        "ನಿಮಗೆ ಬೇಕಾದ ಕೋಣೆ ಇಲ್ಲಿ ಲಭ್ಯವಿಲ್ಲದಿದ್ದರೆ, ಹತ್ತಿರದ ಇತರ ನೆಟ್‌ವರ್ಕ್ ಆಸ್ಪತ್ರೆಗಳಲ್ಲಿ ಇಂದು ಜಾಗ ಇರಬಹುದು.",
+      ],
+      te: [
+        "మీ కవర్ గది వర్గాన్ని మించి రోజుకు సుమారు ₹1,800 అదనపు co-pay.",
+        "మీ పాలసీలో పూర్తిగా cashless — అదనపు ఖర్చు లేదు.",
+        "మీకు కావలసిన గది ఇక్కడ అందుబాటులో లేకపోతే, సమీపంలోని ఇతర నెట్‌వర్క్ ఆసుపత్రులలో ఈరోజు స్థలం ఉండవచ్చు.",
+      ],
+    },
   },
   investigation: {
     label: { en: "Investigation", ta: "பரிசோதனை", hi: "जांच", kn: "ತನಿಖೆ", te: "పరిశోధన" },
@@ -269,6 +312,28 @@ const STAGE_I18N = {
       hi: ["अस्पताल जांच पैकेज", "नेटवर्क से बाहर लैब जांच"],
       kn: ["ಆಸ್ಪತ್ರೆಯ ರೋಗನಿರ್ಣಯ ಪ್ಯಾಕೇಜ್", "ನೆಟ್‌ವರ್ಕ್ ಹೊರಗಿನ ಲ್ಯಾಬ್ ಪರೀಕ್ಷೆಗಳು"],
       te: ["ఆసుపత్రి డయాగ్నస్టిక్ ప్యాకేజీ", "నెట్‌వర్క్ వెలుపలి ల్యాబ్ పరీక్షలు"],
+    },
+    altDetails: {
+      en: [
+        "Covered under your policy sub-limit, cashless.",
+        "Requires a reimbursement claim — keep the original bills and reports.",
+      ],
+      ta: [
+        "உங்கள் பாலிசி துணை வரம்பில் அடங்கும், cashless.",
+        "reimbursement கோரிக்கை தேவை — அசல் பில்கள் மற்றும் அறிக்கைகளை வைத்திருங்கள்.",
+      ],
+      hi: [
+        "आपकी पॉलिसी की उप-सीमा के अंतर्गत कवर, cashless।",
+        "reimbursement दावा आवश्यक — मूल बिल और रिपोर्ट संभालकर रखें।",
+      ],
+      kn: [
+        "ನಿಮ್ಮ ಪಾಲಿಸಿ ಉಪ-ಮಿತಿಯಲ್ಲಿ ಕವರ್, cashless.",
+        "reimbursement ಕ್ಲೈಮ್ ಬೇಕು — ಮೂಲ ಬಿಲ್‌ಗಳು ಮತ್ತು ವರದಿಗಳನ್ನು ಇಟ್ಟುಕೊಳ್ಳಿ.",
+      ],
+      te: [
+        "మీ పాలసీ ఉప-పరిమితిలో కవర్, cashless.",
+        "reimbursement క్లెయిమ్ అవసరం — అసలు బిల్లులు, నివేదికలు భద్రపరచుకోండి.",
+      ],
     },
   },
   procedure: {
@@ -287,6 +352,28 @@ const STAGE_I18N = {
       kn: ["ಪ್ರಮಾಣಿತ ಸಾಮಗ್ರಿಗಳು", "ಪ್ರೀಮಿಯಂ/ಬ್ರಾಂಡೆಡ್ ಸಾಮಗ್ರಿಗಳು"],
       te: ["ప్రామాణిక వస్తువులు", "ప్రీమియం/బ్రాండెడ్ వస్తువులు"],
     },
+    altDetails: {
+      en: [
+        "Fully covered, cashless settlement.",
+        "Partial coverage only — check the annexure for your co-pay percentage.",
+      ],
+      ta: [
+        "முழுமையாக கவர், cashless தீர்வு.",
+        "பகுதி கவரேஜ் மட்டுமே — உங்கள் co-pay சதவீதத்திற்கு இணைப்பைப் பார்க்கவும்.",
+      ],
+      hi: [
+        "पूरी तरह कवर, cashless सेटलमेंट।",
+        "केवल आंशिक कवरेज — अपने co-pay प्रतिशत के लिए एनेक्सचर देखें।",
+      ],
+      kn: [
+        "ಸಂಪೂರ್ಣ ಕವರ್, cashless ಇತ್ಯರ್ಥ.",
+        "ಭಾಗಶಃ ಕವರೇಜ್ ಮಾತ್ರ — ನಿಮ್ಮ co-pay ಶೇಕಡಾವಾರುಗಾಗಿ ಅನೆಕ್ಸರ್ ನೋಡಿ.",
+      ],
+      te: [
+        "పూర్తిగా కవర్, cashless సెటిల్‌మెంట్.",
+        "పాక్షిక కవరేజ్ మాత్రమే — మీ co-pay శాతం కోసం అనుబంధాన్ని చూడండి.",
+      ],
+    },
   },
   recovery: {
     label: { en: "Recovery", ta: "மீட்பு", hi: "रिकवरी", kn: "ಚೇತರಿಕೆ", te: "కోలుకోవడం" },
@@ -304,28 +391,56 @@ const STAGE_I18N = {
       kn: ["ದಿನ-ಮಿತಿ ಮೀರಿದ ವಿಸ್ತೃತ ವಾಸ್ತವ್ಯ", "ಮನೆ ಆರೈಕೆಯೊಂದಿಗೆ ಮುಂಚಿತ ಡಿಸ್ಚಾರ್ಜ್"],
       te: ["దిన-పరిమితి దాటిన పొడిగించిన బస", "హోమ్ కేర్‌తో ముందస్తు డిశ్చార్జ్"],
     },
+    altDetails: {
+      en: [
+        "Extra per-day charges apply once your policy's covered duration is used up.",
+        "May lower room-cost exposure — check whether your policy has a home-care rider.",
+      ],
+      ta: [
+        "உங்கள் பாலிசி கவர் காலம் முடிந்ததும் நாள்தோறும் கூடுதல் கட்டணம் பொருந்தும்.",
+        "அறை செலவைக் குறைக்கலாம் — உங்கள் பாலிசியில் home-care rider உள்ளதா எனப் பார்க்கவும்.",
+      ],
+      hi: [
+        "आपकी पॉलिसी की कवर अवधि समाप्त होने पर प्रति दिन अतिरिक्त शुल्क लगता है।",
+        "कमरे का खर्च कम कर सकता है — देखें कि आपकी पॉलिसी में home-care rider है या नहीं।",
+      ],
+      kn: [
+        "ನಿಮ್ಮ ಪಾಲಿಸಿ ಕವರ್ ಅವಧಿ ಮುಗಿದ ನಂತರ ದಿನಕ್ಕೆ ಹೆಚ್ಚುವರಿ ಶುಲ್ಕ ಅನ್ವಯಿಸುತ್ತದೆ.",
+        "ಕೋಣೆ ವೆಚ್ಚವನ್ನು ಕಡಿಮೆ ಮಾಡಬಹುದು — ನಿಮ್ಮ ಪಾಲಿಸಿಯಲ್ಲಿ home-care rider ಇದೆಯೇ ಎಂದು ನೋಡಿ.",
+      ],
+      te: [
+        "మీ పాలసీ కవర్ వ్యవధి ముగిసిన తర్వాత రోజుకు అదనపు ఛార్జీలు వర్తిస్తాయి.",
+        "గది ఖర్చును తగ్గించవచ్చు — మీ పాలసీలో home-care rider ఉందో లేదో చూడండి.",
+      ],
+    },
   },
 };
 
-// Any language in LANG_OPTIONS without a full translation above safely falls back to English,
-// so selecting it never breaks the UI — it just displays English until localized further.
-LANG_OPTIONS.forEach(({ code }) => {
-  if (!UI_TEXT[code]) UI_TEXT[code] = UI_TEXT.en;
-  Object.values(STAGE_I18N).forEach((stage) => {
-    if (!stage.label[code]) stage.label[code] = stage.label.en;
-    if (!stage.guidance[code]) stage.guidance[code] = stage.guidance.en;
-    if (!stage.altTitles[code]) stage.altTitles[code] = stage.altTitles.en;
-  });
-});
+// Translation lookup: return the string for `lang`, otherwise fall back to English
+// and console.warn so a future gap is visible instead of silently English.
+function translate(lang, key) {
+  const table = UI_TEXT[lang] || UI_TEXT.en;
+  if (table[key] != null) return table[key];
+  if (UI_TEXT.en[key] != null) {
+    if (lang !== "en") console.warn(`[i18n] Missing key "${key}" for language "${lang}" — falling back to English.`);
+    return UI_TEXT.en[key];
+  }
+  console.warn(`[i18n] Unknown translation key "${key}".`);
+  return key;
+}
+
+// Same fallback-and-warn behaviour for the per-stage translation tables.
+function stageField(stageKey, field, lang, index) {
+  const node = STAGE_I18N[stageKey][field];
+  let value = node[lang];
+  if (value == null) {
+    if (lang !== "en") console.warn(`[i18n] Missing stage text "${stageKey}.${field}" for language "${lang}" — falling back to English.`);
+    value = node.en;
+  }
+  return index != null ? value[index] : value;
+}
 
 // --- Add-on: mock insurance-card extraction (simulated OCR, synthetic data per brief) ---
-// --- Add-on: voice assistant locale mapping (browser Web Speech API) ---
-const SPEECH_LOCALES = {
-  en: "en-IN", hi: "hi-IN", bn: "bn-IN", te: "te-IN", mr: "mr-IN", ta: "ta-IN",
-  ur: "ur-IN", gu: "gu-IN", kn: "kn-IN", ml: "ml-IN", or: "or-IN", pa: "pa-IN",
-  as: "as-IN", ne: "ne-NP",
-};
-
 const MOCK_EXTRACTION = {
   insurer: "Star Health — Family Health Optima",
   policyType: "Family Floater (Individual Coverage)",
@@ -333,75 +448,6 @@ const MOCK_EXTRACTION = {
   roomEligibility: ["Semi-Private", "Private"],
   exclusions: ["ICU Suite", "Cosmetic Procedures"],
 };
-
-// --- Add-on: rule-based "Ask Confluence" assistant — grounded in the current patient's real state,
-// so it never invents numbers. Stays within the brief's "decision-support only" boundary. ---
-// --- Add-on: guardrails — enforces the brief's explicit boundary:
-// "must not provide medical diagnoses, clinical treatment recommendations, or binding insurance advice."
-// Checked before any other matching so it can never be bypassed by a cleverly-phrased question.
-const GUARDRAIL_PATTERNS = [
-  {
-    category: "diagnosis",
-    pattern: /diagnos|what.?s wrong with me|do i have (a |an )?\w+|is (this|it) serious|what disease|symptom/i,
-    reply: "I can't provide a medical diagnosis — that needs a doctor who can actually examine the patient. What I can do is tell you what your insurance covers once a diagnosis or treatment plan is in place.",
-  },
-  {
-    category: "treatment",
-    pattern: /should i (take|do|get|have)|which (medicine|drug|treatment)|prescribe|dosage|treatment for|cure for|surgery needed|recommend (a |the )?treatment|is surgery necessary/i,
-    reply: "I can't recommend a clinical treatment or medication — that decision belongs to your doctor. Once a treatment is decided, I can tell you how your policy covers it.",
-  },
-  {
-    category: "binding",
-    pattern: /guarantee|100% (sure|certain|covered|approved)|promise|definitely (covered|approved)|for sure (covered|approved)|will (definitely|certainly) (cover|approve|pay)|is my claim (approved|guaranteed)/i,
-    reply: "I can't guarantee a specific insurance outcome — final approval always depends on your insurer's review of the claim. Based on your policy, here's what's typically expected, but please confirm the final decision with your insurer directly.",
-  },
-];
-
-function checkGuardrails(question) {
-  const q = question.toLowerCase();
-  for (const g of GUARDRAIL_PATTERNS) {
-    if (g.pattern.test(q)) return { text: g.reply, flagged: true, category: g.category };
-  }
-  return null;
-}
-
-function generateAssistantReply(question, profile, stage, hospitals) {
-  const guardrailHit = checkGuardrails(question);
-  if (guardrailHit) return guardrailHit;
-
-  const q = question.toLowerCase();
-
-  if (/private|upgrade|deluxe/.test(q)) {
-    const covered = profile.roomEligibility.join(" or ");
-    return { text: `Your policy covers ${covered}. Upgrading to a room outside that list (like Private or Deluxe) usually means a daily co-pay difference — check the "Possible Alternatives" list on the current stage for an estimate.`, flagged: false };
-  }
-  if (/network|out.?of.?network/.test(q)) {
-    const outNames = hospitals.filter((h) => h.network === "Out-of-Network").map((h) => h.name);
-    return { text: outNames.length
-      ? `Most listed hospitals are in-network. ${outNames.join(", ")} ${outNames.length > 1 ? "are" : "is"} out-of-network — that typically means reimbursement instead of cashless settlement.`
-      : `All currently listed hospitals are in-network, so cashless settlement should apply.`, flagged: false };
-  }
-  if (/cost|price|how much|expensive|out.?of.?pocket/.test(q)) {
-    const cheapest = [...hospitals].sort((a, b) => a.indicativeCost - b.indicativeCost)[0];
-    return { text: `Your coverage limit is ${formatRupees(profile.coverageLimit)}. Indicative costs range up to ${formatRupees(Math.max(...hospitals.map((h) => h.indicativeCost)))}, with ${cheapest.name} the lowest at ~${formatRupees(cheapest.indicativeCost)}.`, flagged: false };
-  }
-  if (/exclu|not covered|won.?t cover|doesn.?t cover/.test(q)) {
-    return { text: `Your policy explicitly excludes: ${profile.exclusions.join(", ")}. Anything in that list will likely mean out-of-pocket expense.`, flagged: false };
-  }
-  if (/transfer/.test(q)) {
-    const t = stage.alternatives.find((a) => /transfer/i.test(a.title));
-    return { text: t ? `${t.title}: ${t.detail}` : `A hospital transfer isn't typically listed as an alternative at the ${stage.label} stage — check the Admission stage for transfer options.`, flagged: false };
-  }
-  if (/admission|admit/.test(q)) return { text: STAGE_I18N.admission.guidance.en, flagged: false };
-  if (/investigat|which test|lab test/.test(q)) return { text: STAGE_I18N.investigation.guidance.en, flagged: false };
-  if (/procedure|consumable|implant/.test(q)) return { text: STAGE_I18N.procedure.guidance.en, flagged: false };
-  if (/recovery|discharge/.test(q)) return { text: STAGE_I18N.recovery.guidance.en, flagged: false };
-  if (/coverage|limit|how much covered/.test(q)) {
-    return { text: `You're covered up to ${formatRupees(profile.coverageLimit)} under ${profile.insurer} (${profile.policyType}).`, flagged: false };
-  }
-
-  return { text: `Right now you're at the ${stage.label} stage: ${stage.guidance} You can also ask me about hospital networks, costs, exclusions, or transfer options.`, flagged: false };
-}
 
 export default function ConfluenceDashboard() {
   const [activeTab, setActiveTab] = useState("ops");
@@ -413,13 +459,6 @@ export default function ConfluenceDashboard() {
   const [draftInsurance, setDraftInsurance] = useState(() => buildInsuranceFromPatient(BASE_PATIENTS[0]));
   const [uploading, setUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState(null);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatTyping, setChatTyping] = useState(false);
-  const [chatAttachment, setChatAttachment] = useState(null);
-  const [listening, setListening] = useState(false);
-  const [speakingIndex, setSpeakingIndex] = useState(null);
-  const recognitionRef = React.useRef(null);
   const [weights, setWeights] = useState({ clinical: 45, policy: 30, resource: 25 });
   const [expandedId, setExpandedId] = useState("P-104");
   const [filter, setFilter] = useState("all");
@@ -456,9 +495,10 @@ export default function ConfluenceDashboard() {
     setInsurance(buildInsuranceFromPatient(target));
     setEditingInsurance(false);
     setJourneyStage(0);
-    setChatMessages([]);
     setUploadedFileName(null);
   };
+
+  const t = useMemo(() => (key) => translate(lang, key), [lang]);
 
   // --- Add-on: simulated insurance card upload + auto-extraction ---
   const handleUploadCard = (e) => {
@@ -471,90 +511,6 @@ export default function ConfluenceDashboard() {
       setEditingInsurance(true);
       setUploading(false);
     }, 1200);
-  };
-
-  // --- Add-on: Ask Confluence assistant (now with file attachment + voice support) ---
-  const handleSendChat = () => {
-    const question = chatInput.trim();
-    if (!question && !chatAttachment) return;
-
-    const attachment = chatAttachment;
-    setChatMessages((prev) => [...prev, { role: "user", text: question, attachment }]);
-    setChatInput("");
-    setChatAttachment(null);
-    setChatTyping(true);
-
-    setTimeout(() => {
-      let reply;
-      if (attachment && !question) {
-        reply = { text: `I see you've attached "${attachment.name}". I can't read attachment contents in this preview yet, but describe what's in it or ask a specific question and I'll help using your policy details.`, flagged: false };
-      } else if (attachment && question) {
-        const base = generateAssistantReply(question, insurance, JOURNEY_STAGES[journeyStage], HOSPITALS);
-        reply = { text: `Regarding "${attachment.name}" — ${base.text}`, flagged: base.flagged };
-      } else {
-        reply = generateAssistantReply(question, insurance, JOURNEY_STAGES[journeyStage], HOSPITALS);
-      }
-      setChatMessages((prev) => [...prev, { role: "assistant", text: reply.text, flagged: reply.flagged }]);
-      setChatTyping(false);
-    }, 550);
-  };
-
-  const handleChatAttachFile = (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    setChatAttachment({ name: file.name, size: file.size });
-    e.target.value = "";
-  };
-
-  const removeChatAttachment = () => setChatAttachment(null);
-
-  // --- Add-on: voice input via the browser's Web Speech API (no external service/key needed) ---
-  const speechSupported = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
-
-  const toggleListening = () => {
-    if (!speechSupported) return;
-    if (listening) {
-      recognitionRef.current && recognitionRef.current.stop();
-      setListening(false);
-      return;
-    }
-    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recog = new SpeechRecognitionCtor();
-    recog.lang = SPEECH_LOCALES[lang] || "en-IN";
-    recog.interimResults = false;
-    recog.maxAlternatives = 1;
-    recog.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setChatInput((prev) => (prev ? prev + " " + transcript : transcript));
-    };
-    recog.onend = () => setListening(false);
-    recog.onerror = () => setListening(false);
-    recognitionRef.current = recog;
-    setListening(true);
-    recog.start();
-  };
-
-  // --- Add-on: text-to-speech playback of assistant replies ---
-  const ttsSupported = typeof window !== "undefined" && "speechSynthesis" in window;
-
-  const toggleSpeak = (index, text) => {
-    if (!ttsSupported) return;
-    if (speakingIndex === index) {
-      window.speechSynthesis.cancel();
-      setSpeakingIndex(null);
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = SPEECH_LOCALES[lang] || "en-IN";
-    utter.onend = () => setSpeakingIndex(null);
-    utter.onerror = () => setSpeakingIndex(null);
-    setSpeakingIndex(index);
-    window.speechSynthesis.speak(utter);
-  };
-
-  const handleChatKeyDown = (e) => {
-    if (e.key === "Enter") handleSendChat();
   };
 
   const patients = useMemo(() => {
@@ -644,6 +600,23 @@ export default function ConfluenceDashboard() {
 
   const cancelInsuranceEdits = () => {
     setEditingInsurance(false);
+  };
+
+  // --- Context handed to the shared AskConfluence chat (live state, read at reply time) ---
+  const navChatContext = {
+    profile: insurance,
+    hospitals: HOSPITALS,
+    stage: JOURNEY_STAGES[journeyStage],
+    stageIndex: journeyStage,
+    stageCount: JOURNEY_STAGES.length,
+  };
+  const opsChatContext = {
+    patients,
+    weights,
+    totalW,
+    bedsFree,
+    eventLog,
+    threshold: POLICY_MATCH_THRESHOLD,
   };
 
   return (
@@ -1014,7 +987,15 @@ export default function ConfluenceDashboard() {
         .chat-intro { font-size: 12px; color: var(--muted); font-style: italic; }
         .chat-bubble {
           max-width: 80%; font-size: 12.5px; line-height: 1.55; padding: 9px 13px; border-radius: 10px;
+          white-space: pre-wrap;
         }
+        .chat-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .chat-suggestion {
+          font-family: inherit; font-size: 11px; color: var(--clinical); cursor: pointer;
+          background: rgba(79,201,224,0.08); border: 1px solid rgba(79,201,224,0.35);
+          border-radius: 16px; padding: 5px 11px; text-align: left;
+        }
+        .chat-suggestion:hover { background: rgba(79,201,224,0.16); }
         .chat-bubble.user {
           align-self: flex-end; background: var(--policy); color: #fff; border-bottom-right-radius: 3px;
         }
@@ -1088,15 +1069,19 @@ export default function ConfluenceDashboard() {
 
       <div className="tab-switch">
         <button className={"tab-btn" + (activeTab === "ops" ? " active" : "")} onClick={() => setActiveTab("ops")}>
-          Admission Ops
+          {t("opsTab")}
         </button>
         <button className={"tab-btn" + (activeTab === "navigator" ? " active" : "")} onClick={() => setActiveTab("navigator")}>
-          Insurance Navigator
+          {t("navTab")}
         </button>
       </div>
 
       {activeTab === "ops" && (
       <>
+      <div className="disclaimer-banner">
+        <Info size={14} />
+        <span>{t("disclaimer")}</span>
+      </div>
       <div className="header">
         <div className="brand">
           <div className="brand-mark">
@@ -1152,7 +1137,7 @@ export default function ConfluenceDashboard() {
 
           <div className="weight-row">
             <div className="weight-label">
-              <span className="weight-name"><span className="dot" style={{ background: "var(--clinical)" }} /> Clinical Risk</span>
+              <span className="weight-name"><span className="dot" style={{ background: "var(--clinical)" }} /> Triage Acuity <span style={{ color: "var(--muted)", fontSize: "10px" }}>(assigned by clinical staff)</span></span>
               <span className="mono">{weights.clinical}</span>
             </div>
             <input type="range" min="5" max="80" value={weights.clinical} onChange={(e) => setW("clinical", +e.target.value)} />
@@ -1248,7 +1233,7 @@ export default function ConfluenceDashboard() {
                         <circle cx="112" cy="124" r="7" fill="var(--resource)" />
                         <circle cx="560" cy="75" r="10" fill="var(--gold)" />
 
-                        <text x="0" y="16" fill="var(--muted)" fontSize="10" fontFamily="IBM Plex Mono, monospace">CLINICAL RISK</text>
+                        <text x="0" y="16" fill="var(--muted)" fontSize="10" fontFamily="IBM Plex Mono, monospace">TRIAGE ACUITY · STAFF-ASSIGNED</text>
                         <text x="0" y="34" fill="var(--clinical)" fontSize="16" fontWeight="600" fontFamily="IBM Plex Mono, monospace">{p.clinicalRisk}</text>
 
                         <text x="0" y="65" fill="var(--muted)" fontSize="10" fontFamily="IBM Plex Mono, monospace">POLICY MATCH · {p.scheme.length > 22 ? p.scheme.slice(0,22)+"…" : p.scheme}</text>
@@ -1265,15 +1250,20 @@ export default function ConfluenceDashboard() {
                     <div className="rec-box">
                       <ArrowRight size={18} className="icon" />
                       <div>
-                        <div className="rec-title">Recommended: Admit → {p.bed}</div>
+                        <div className="rec-title">
+                          {p.bed} — {p.network === "In-Network" ? "in-network" : "out-of-network"} under {p.scheme}
+                        </div>
                         <div className="rec-text">
-                          Eligible under {p.scheme} at {p.policyMatch}% coverage match. {rationale(p, weights)}
+                          {p.policyMatch}% coverage match.{" "}
+                          {p.network === "In-Network" && p.policyMatch >= POLICY_MATCH_THRESHOLD
+                            ? "Cashless settlement expected."
+                            : "Confirm cashless eligibility with the insurer desk before admission."}
                         </div>
                       </div>
                     </div>
 
                     <div className="legend">
-                      <span className="legend-item"><span className="dot" style={{ background: "var(--clinical)" }} /> Clinical layer</span>
+                      <span className="legend-item"><span className="dot" style={{ background: "var(--clinical)" }} /> Triage acuity layer</span>
                       <span className="legend-item"><span className="dot" style={{ background: "var(--policy)" }} /> Policy layer</span>
                       <span className="legend-item"><span className="dot" style={{ background: "var(--resource)" }} /> Resource layer</span>
                       <span className="legend-item"><ShieldCheck size={12} /> Explainable at every node</span>
@@ -1285,6 +1275,8 @@ export default function ConfluenceDashboard() {
           })}
         </div>
       </div>
+
+      <AskConfluence mode="ops" lang="en" context={opsChatContext} />
       </>
       )}
 
@@ -1295,13 +1287,13 @@ export default function ConfluenceDashboard() {
               <div className="brand-mark"><Sparkles size={18} color="#0a0f16" /></div>
               <div>
                 <div className="title display">CONFLUENCE</div>
-                <div className="subtitle">{UI_TEXT[lang].navTab} — {insurance.patientName}</div>
+                <div className="subtitle">{t("navTab")} — {insurance.patientName}</div>
               </div>
             </div>
             <div className="nav-header-controls">
               <div className="patient-select-wrap">
                 <Languages size={13} />
-                <span className="patient-select-label">Select Language</span>
+                <span className="patient-select-label">{t("selectLanguage")}</span>
                 <select
                   className="patient-select"
                   value={lang}
@@ -1313,7 +1305,7 @@ export default function ConfluenceDashboard() {
                 </select>
               </div>
               <div className="patient-select-wrap">
-                <span className="patient-select-label">{UI_TEXT[lang].viewingFor}</span>
+                <span className="patient-select-label">{t("viewingFor")}</span>
                 <select
                   className="patient-select"
                   value={selectedPatientId}
@@ -1329,38 +1321,38 @@ export default function ConfluenceDashboard() {
 
           <div className="disclaimer-banner">
             <Info size={14} />
-            <span>{UI_TEXT[lang].disclaimer}</span>
+            <span>{t("disclaimer")}</span>
           </div>
 
           <div className="key-takeaway">
             <ShieldCheck size={16} />
             <span>
-              {UI_TEXT[lang].takeawayPrefix} <b>{formatRupees(insurance.coverageLimit)}</b> {UI_TEXT[lang].takeawayMid}{" "}
-              <b>{insurance.roomEligibility.join(" / ")}</b> {UI_TEXT[lang].takeawayRoom} {insurance.exclusions.join(", ")} {UI_TEXT[lang].takeawaySuffix}
+              {t("takeawayPrefix")} <b>{formatRupees(insurance.coverageLimit)}</b> {t("takeawayMid")}{" "}
+              <b>{insurance.roomEligibility.join(" / ")}</b> {t("takeawayRoom")} {insurance.exclusions.join(", ")} {t("takeawaySuffix")}
             </span>
           </div>
 
           <div className="nav-grid">
             <div className="panel-like insurance-card">
               <div className="sidebar-title">
-                <ShieldCheck size={14} /> {UI_TEXT[lang].insuranceSummary}
+                <ShieldCheck size={14} /> {t("insuranceSummary")}
                 {!editingInsurance && (
-                  <button className="edit-link" onClick={startEditingInsurance}>{UI_TEXT[lang].editUpdate}</button>
+                  <button className="edit-link" onClick={startEditingInsurance}>{t("editUpdate")}</button>
                 )}
               </div>
 
               {!editingInsurance ? (
                 <>
-                  <div className="ins-row"><span>{UI_TEXT[lang].insurer}</span><b>{insurance.insurer}</b></div>
-                  <div className="ins-row"><span>{UI_TEXT[lang].policyType}</span><b>{insurance.policyType}</b></div>
-                  <div className="ins-row"><span>{UI_TEXT[lang].coverageLimit}</span><b className="mono">{formatRupees(insurance.coverageLimit)}</b></div>
-                  <div className="ins-row"><span>{UI_TEXT[lang].roomEligibility}</span><b>{insurance.roomEligibility.join(", ") || "—"}</b></div>
-                  <div className="ins-row"><span>{UI_TEXT[lang].exclusions}</span><b className="exclusion-text">{insurance.exclusions.join(", ")}</b></div>
+                  <div className="ins-row"><span>{t("insurer")}</span><b>{insurance.insurer}</b></div>
+                  <div className="ins-row"><span>{t("policyType")}</span><b>{insurance.policyType}</b></div>
+                  <div className="ins-row"><span>{t("coverageLimit")}</span><b className="mono">{formatRupees(insurance.coverageLimit)}</b></div>
+                  <div className="ins-row"><span>{t("roomEligibility")}</span><b>{insurance.roomEligibility.join(", ") || "—"}</b></div>
+                  <div className="ins-row"><span>{t("exclusions")}</span><b className="exclusion-text">{insurance.exclusions.join(", ")}</b></div>
 
                   <div className="upload-block">
                     <label className="upload-btn">
                       <UploadCloud size={13} />
-                      {uploading ? UI_TEXT[lang].analyzing : UI_TEXT[lang].uploadCard}
+                      {uploading ? t("analyzing") : t("uploadCard")}
                       <input type="file" accept="image/*,.pdf" onChange={handleUploadCard} disabled={uploading} hidden />
                     </label>
                     {uploadedFileName && !uploading && (
@@ -1371,9 +1363,9 @@ export default function ConfluenceDashboard() {
               ) : (
                 <div className="ins-form">
                   {uploadedFileName && (
-                    <div className="extracted-note"><Sparkles size={12} /> {UI_TEXT[lang].extractedNote}</div>
+                    <div className="extracted-note"><Sparkles size={12} /> {t("extractedNote")}</div>
                   )}
-                  <label className="ins-label">Insurer / Scheme</label>
+                  <label className="ins-label">{t("formInsurer")}</label>
                   <select
                     className="ins-input"
                     value={draftInsurance.insurer}
@@ -1384,7 +1376,7 @@ export default function ConfluenceDashboard() {
                     ))}
                   </select>
 
-                  <label className="ins-label">Policy Type</label>
+                  <label className="ins-label">{t("formPolicyType")}</label>
                   <input
                     className="ins-input"
                     type="text"
@@ -1392,7 +1384,7 @@ export default function ConfluenceDashboard() {
                     onChange={(e) => setDraftInsurance((p) => ({ ...p, policyType: e.target.value }))}
                   />
 
-                  <label className="ins-label">Coverage Limit (₹)</label>
+                  <label className="ins-label">{t("formCoverageLimit")}</label>
                   <input
                     className="ins-input"
                     type="number"
@@ -1400,7 +1392,7 @@ export default function ConfluenceDashboard() {
                     onChange={(e) => setDraftInsurance((p) => ({ ...p, coverageLimit: Number(e.target.value) || 0 }))}
                   />
 
-                  <label className="ins-label">Room Eligibility</label>
+                  <label className="ins-label">{t("formRoomEligibility")}</label>
                   <div className="room-check-group">
                     {ROOM_OPTIONS.map((room) => (
                       <label key={room} className={"room-check" + (draftInsurance.roomEligibility.includes(room) ? " checked" : "")}>
@@ -1414,7 +1406,7 @@ export default function ConfluenceDashboard() {
                     ))}
                   </div>
 
-                  <label className="ins-label">Exclusions (comma-separated)</label>
+                  <label className="ins-label">{t("formExclusions")}</label>
                   <input
                     className="ins-input"
                     type="text"
@@ -1423,15 +1415,15 @@ export default function ConfluenceDashboard() {
                   />
 
                   <div className="ins-form-actions">
-                    <button className="ins-save-btn" onClick={saveInsuranceEdits}>{UI_TEXT[lang].save}</button>
-                    <button className="ins-cancel-btn" onClick={cancelInsuranceEdits}>{UI_TEXT[lang].cancel}</button>
+                    <button className="ins-save-btn" onClick={saveInsuranceEdits}>{t("save")}</button>
+                    <button className="ins-cancel-btn" onClick={cancelInsuranceEdits}>{t("cancel")}</button>
                   </div>
                 </div>
               )}
             </div>
 
             <div className="panel-like hospital-panel">
-              <div className="sidebar-title"><Building2 size={14} /> {UI_TEXT[lang].suggestedHospitals}</div>
+              <div className="sidebar-title"><Building2 size={14} /> {t("suggestedHospitals")}</div>
               <div className="hospital-list">
                 {HOSPITALS.map((h) => {
                   const m = hospitalMatch(h, insurance);
@@ -1442,7 +1434,7 @@ export default function ConfluenceDashboard() {
                           <div className="hospital-name">{h.name}</div>
                           <div className="hospital-meta"><MapPin size={11} /> {h.location} · {h.specialty}</div>
                         </div>
-                        <span className={"network-badge " + (h.network === "In-Network" ? "in" : "out")}>{h.network}</span>
+                        <span className={"network-badge " + (h.network === "In-Network" ? "in" : "out")}>{h.network === "In-Network" ? t("inNetwork") : t("outOfNetwork")}</span>
                       </div>
                       <div className="hospital-rooms">
                         {h.roomTypes.map((r) => (
@@ -1450,10 +1442,10 @@ export default function ConfluenceDashboard() {
                         ))}
                       </div>
                       <div className="hospital-foot">
-                        <span className="mono"><Percent size={11} /> {m.score}% match</span>
+                        <span className="mono"><Percent size={11} /> {m.score}% {t("matchLabel")}</span>
                         <span className="hospital-cost mono">~{formatRupees(h.indicativeCost)}</span>
                       </div>
-                      <div className="hospital-reason">{m.reason}</div>
+                      <div className="hospital-reason">{hospitalReasonText(t, m)}</div>
                     </div>
                   );
                 })}
@@ -1462,11 +1454,10 @@ export default function ConfluenceDashboard() {
           </div>
 
           <div className="panel-like journey-panel">
-            <div className="sidebar-title"><ListChecks size={14} /> {UI_TEXT[lang].careJourney}</div>
+            <div className="sidebar-title"><ListChecks size={14} /> {t("careJourney")}</div>
             <div className="stage-track">
               {JOURNEY_STAGES.map((s, idx) => {
-                const i18n = STAGE_I18N[s.key];
-                const statusText = idx < journeyStage ? UI_TEXT[lang].completed : idx === journeyStage ? UI_TEXT[lang].current : UI_TEXT[lang].upcoming;
+                const statusText = idx < journeyStage ? t("completed") : idx === journeyStage ? t("current") : t("upcoming");
                 return (
                   <button
                     key={s.key}
@@ -1475,7 +1466,7 @@ export default function ConfluenceDashboard() {
                   >
                     <span className="stage-index">{idx + 1}</span>
                     <span className="stage-btn-text">
-                      <span className="stage-btn-label">{i18n.label[lang]}</span>
+                      <span className="stage-btn-label">{stageField(s.key, "label", lang)}</span>
                       <span className="stage-btn-status">{statusText}</span>
                     </span>
                   </button>
@@ -1483,80 +1474,33 @@ export default function ConfluenceDashboard() {
               })}
             </div>
             <div className="stage-panel">
-              <div className="stage-title">{STAGE_I18N[JOURNEY_STAGES[journeyStage].key].label[lang]} — Insurance Guidance</div>
-              <div className="stage-guidance">{STAGE_I18N[JOURNEY_STAGES[journeyStage].key].guidance[lang]}</div>
+              <div className="stage-title">{stageField(JOURNEY_STAGES[journeyStage].key, "label", lang)} · {t("insuranceGuidance")}</div>
+              <div className="stage-guidance">{stageField(JOURNEY_STAGES[journeyStage].key, "guidance", lang)}</div>
 
-              <div className="alt-title"><ArrowLeftRight size={12} /> {UI_TEXT[lang].possibleAlternatives}</div>
+              <div className="alt-title"><ArrowLeftRight size={12} /> {t("possibleAlternatives")}</div>
               <div className="alt-list">
                 {JOURNEY_STAGES[journeyStage].alternatives.map((a, i) => (
                   <div className="alt-item" key={i}>
-                    <div className="alt-item-title">{STAGE_I18N[JOURNEY_STAGES[journeyStage].key].altTitles[lang][i]}</div>
-                    <div className="alt-item-detail">{a.detail}</div>
+                    <div className="alt-item-title">{stageField(JOURNEY_STAGES[journeyStage].key, "altTitles", lang, i)}</div>
+                    <div className="alt-item-detail">{stageField(JOURNEY_STAGES[journeyStage].key, "altDetails", lang, i)}</div>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="panel-like chat-panel">
-            <div className="sidebar-title">
-              <MessageCircle size={14} /> {UI_TEXT[lang].askTitle}
-              <span className="guardrail-badge"><ShieldAlert size={11} /> No diagnosis · No binding advice</span>
-            </div>
-            <div className="chat-window">
-              {chatMessages.length === 0 && (
-                <div className="chat-intro">{UI_TEXT[lang].askIntro}</div>
-              )}
-              {chatMessages.map((m, i) => (
-                <div key={i} className={"chat-bubble " + m.role + (m.flagged ? " flagged" : "")}>
-                  {m.flagged && <div className="flagged-label"><ShieldAlert size={11} /> Outside decision-support scope</div>}
-                  {m.attachment && (
-                    <div className="chat-file-chip"><Paperclip size={11} /> {m.attachment.name}</div>
-                  )}
-                  {m.text}
-                  {m.role === "assistant" && ttsSupported && (
-                    <button className="chat-speak-btn" onClick={() => toggleSpeak(i, m.text)} title="Listen">
-                      <Volume2 size={12} color={speakingIndex === i ? "var(--policy)" : undefined} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              {chatTyping && <div className="chat-bubble assistant typing">···</div>}
-            </div>
-
-            {chatAttachment && (
-              <div className="chat-attachment-preview">
-                <Paperclip size={12} /> {chatAttachment.name}
-                <button className="chat-attachment-remove" onClick={removeChatAttachment}>✕</button>
-              </div>
-            )}
-
-            <div className="chat-input-row">
-              <label className="chat-icon-btn" title="Attach a file">
-                <Paperclip size={15} />
-                <input type="file" accept="image/*,.pdf,.doc,.docx" onChange={handleChatAttachFile} hidden />
-              </label>
-              {speechSupported && (
-                <button
-                  className={"chat-icon-btn" + (listening ? " listening" : "")}
-                  onClick={toggleListening}
-                  title={listening ? "Stop listening" : "Speak your question"}
-                  type="button"
-                >
-                  <Mic size={15} />
-                </button>
-              )}
-              <input
-                className="chat-input"
-                type="text"
-                placeholder={listening ? "Listening…" : UI_TEXT[lang].askPlaceholder}
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={handleChatKeyDown}
-              />
-              <button className="chat-send-btn" onClick={handleSendChat}><Send size={14} /> {UI_TEXT[lang].send}</button>
-            </div>
-          </div>
+          <AskConfluence
+            key={"nav-" + selectedPatientId}
+            mode="navigator"
+            lang={lang}
+            context={navChatContext}
+            labels={{
+              title: t("askTitle"),
+              placeholder: t("askPlaceholder"),
+              send: t("send"),
+              intro: t("askIntro"),
+            }}
+          />
         </div>
       )}
     </div>
