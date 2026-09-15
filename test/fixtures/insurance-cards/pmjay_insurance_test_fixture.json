@@ -1,0 +1,27 @@
+{
+  "document_type": "INSURANCE_POLICY_CARD",
+  "is_synthetic_test_data": true,
+  "note": "Fabricated fixture for testing the upload -> extraction -> Insurance Summary flow. No real PII.",
+  "fields": {
+    "policy_holder_name": "TEST PERSON DEMO",
+    "policy_number": "PMJAY-TEST-0000-0000",
+    "insurer": "Ayushman Bharat (PM-JAY)",
+    "policy_type": "Government Health Assurance",
+    "coverage_limit": "₹5.00L",
+    "coverage_limit_numeric": 500000,
+    "room_eligibility": ["General Ward", "Semi-Private"],
+    "exclusions": ["Private Deluxe Room", "Cosmetic Procedures"],
+    "valid_from": "2026-01-01",
+    "valid_until": "2026-12-31"
+  },
+  "expected_ui_state_note": "handleUploadCard() in ConfluenceDashboard.jsx does not perform real OCR/extraction on the uploaded file -- it ignores the file's contents entirely and always assigns the hardcoded MOCK_EXTRACTION object after a simulated 1200ms delay. `fields` above is the ground truth printed on this synthetic PM-JAY card; `expected_ui_state` below is what the app actually renders today regardless of that ground truth. This fixture is a regression test for the current mocked behavior, not a test of real OCR fidelity -- it will need updating if MOCK_EXTRACTION or handleUploadCard changes.",
+  "expected_ui_state": {
+    "insurance_summary_panel": {
+      "Insurer": "Star Health — Family Health Optima",
+      "Policy Type": "Family Floater (Individual Coverage)",
+      "Coverage Limit": "₹3.00L",
+      "Room Eligibility": "Semi-Private, Private",
+      "Exclusions": "ICU Suite, Cosmetic Procedures"
+    }
+  }
+}
