@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, Languages } from "lucide-react";
+import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, Languages, AlertTriangle } from "lucide-react";
 import AskConfluence from "./AskConfluence.jsx";
-import { formatRupees } from "./format.js";
+import { formatRupees, parseRupees } from "./format.js";
 
 // --- Policy-match threshold below which staff should confirm coverage with the insurer desk ---
 const POLICY_MATCH_THRESHOLD = 70;
@@ -148,6 +148,8 @@ const UI_TEXT = {
     takeawaySuffix: "will likely mean extra out-of-pocket cost.",
     uploadCard: "Upload Insurance Card", analyzing: "Analyzing document…",
     extractedNote: "Extracted from your uploaded document — review and save below.",
+    extractionIncomplete: "Some fields couldn't be read — please review and edit manually.",
+    extractionUnavailable: "Couldn't reach the extraction service — showing placeholder demo data. Please review and edit manually.",
     askTitle: "Ask Confluence", askPlaceholder: "Ask about coverage, rooms, or next steps…", send: "Send",
     askIntro: "Ask me anything about your coverage, hospitals, or care journey.",
     selectLanguage: "Select Language", insuranceGuidance: "Insurance Guidance", matchLabel: "match",
@@ -440,7 +442,13 @@ function stageField(stageKey, field, lang, index) {
   return index != null ? value[index] : value;
 }
 
-// --- Add-on: mock insurance-card extraction (simulated OCR, synthetic data per brief) ---
+// --- Insurance-card extraction ---------------------------------------------
+// Real extraction calls POST /api/extract-insurance-card (Gemini, server-side
+// key). MOCK_EXTRACTION is kept as a fallback for two cases: (1) a live
+// Gemini outage, so a demo never breaks, and (2) VITE_FORCE_MOCK_EXTRACTION,
+// an escape hatch for offline/no-API-key demos. Either fallback path also
+// surfaces the "couldn't be read" warning below -- it must never look
+// identical to a real, verified extraction.
 const MOCK_EXTRACTION = {
   insurer: "Star Health — Family Health Optima",
   policyType: "Family Floater (Individual Coverage)",
@@ -448,6 +456,55 @@ const MOCK_EXTRACTION = {
   roomEligibility: ["Semi-Private", "Private"],
   exclusions: ["ICU Suite", "Cosmetic Procedures"],
 };
+
+const FORCE_MOCK_EXTRACTION = import.meta.env.VITE_FORCE_MOCK_EXTRACTION === "true";
+
+// The 5 fields the Insurance Summary panel actually shows and that
+// admission/coverage decisions are made from -- if any of these came back
+// null/empty from extraction, the reviewer must be told, not just left to
+// notice a blank field on their own.
+const REQUIRED_SUMMARY_FIELDS = ["insurer", "policyType", "coverageLimit", "roomEligibility", "exclusions"];
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error("Could not read the selected file."));
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const commaIdx = result.indexOf(",");
+      resolve(commaIdx >= 0 ? result.slice(commaIdx + 1) : result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Maps the /api/extract-insurance-card response shape onto the panel's
+// state shape, and separately reports which of the 5 required fields came
+// back missing -- coverage_limit is parsed via parseRupees() rather than
+// trusted as-is, so an unparseable amount is treated as missing too instead
+// of silently landing as a wrong number.
+function mapExtraction(extracted) {
+  const coverageNumeric = parseRupees(extracted.coverage_limit);
+  const roomEligibility = Array.isArray(extracted.room_eligibility) ? extracted.room_eligibility : [];
+  const exclusions = Array.isArray(extracted.exclusions) ? extracted.exclusions : [];
+
+  return {
+    fields: {
+      insurer: extracted.insurer || "",
+      policyType: extracted.policy_type || "",
+      coverageLimit: coverageNumeric ?? 0,
+      roomEligibility,
+      exclusions,
+    },
+    missing: {
+      insurer: !extracted.insurer,
+      policyType: !extracted.policy_type,
+      coverageLimit: coverageNumeric === null,
+      roomEligibility: roomEligibility.length === 0,
+      exclusions: exclusions.length === 0,
+    },
+  };
+}
 
 export default function ConfluenceDashboard() {
   const [activeTab, setActiveTab] = useState("ops");
@@ -459,6 +516,7 @@ export default function ConfluenceDashboard() {
   const [draftInsurance, setDraftInsurance] = useState(() => buildInsuranceFromPatient(BASE_PATIENTS[0]));
   const [uploading, setUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState(null);
+  const [extractionWarning, setExtractionWarning] = useState(null);
   const [weights, setWeights] = useState({ clinical: 45, policy: 30, resource: 25 });
   const [expandedId, setExpandedId] = useState("P-104");
   const [filter, setFilter] = useState("all");
@@ -496,21 +554,59 @@ export default function ConfluenceDashboard() {
     setEditingInsurance(false);
     setJourneyStage(0);
     setUploadedFileName(null);
+    setExtractionWarning(null);
   };
 
   const t = useMemo(() => (key) => translate(lang, key), [lang]);
 
-  // --- Add-on: simulated insurance card upload + auto-extraction ---
-  const handleUploadCard = (e) => {
+  // --- Insurance card upload -> real Gemini extraction, with a mock fallback ---
+  const handleUploadCard = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     setUploadedFileName(file.name);
     setUploading(true);
-    setTimeout(() => {
+    setExtractionWarning(null);
+
+    const useMockFallback = (warning) => {
+      setExtractionWarning(warning);
       setDraftInsurance({ ...MOCK_EXTRACTION, patientName: insurance.patientName });
       setEditingInsurance(true);
       setUploading(false);
-    }, 1200);
+    };
+
+    if (FORCE_MOCK_EXTRACTION) {
+      // Offline/no-API-key demo escape hatch -- keeps the original simulated
+      // delay so the UI still shows the "Analyzing document…" state.
+      setTimeout(() => useMockFallback(null), 1200);
+      return;
+    }
+
+    try {
+      const imageBase64 = await readFileAsBase64(file);
+      const response = await fetch("/api/extract-insurance-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64, mimeType: file.type || "image/png" }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload || !payload.ok) {
+        throw new Error(payload?.error || `Extraction failed (HTTP ${response.status}).`);
+      }
+
+      const { fields, missing } = mapExtraction(payload.data);
+      const anyMissing = REQUIRED_SUMMARY_FIELDS.some((key) => missing[key]);
+
+      setDraftInsurance({ ...insurance, ...fields, patientName: insurance.patientName });
+      setExtractionWarning(anyMissing ? t("extractionIncomplete") : null);
+      setEditingInsurance(true);
+      setUploading(false);
+    } catch (err) {
+      // Gemini call failed outright (network, outage, bad/missing key, non-JSON
+      // reply, ...) -- fall back to the mock so a live demo doesn't just break,
+      // but say so loudly rather than showing placeholder data as if verified.
+      console.error("Insurance card extraction failed:", err);
+      useMockFallback(t("extractionUnavailable"));
+    }
   };
 
   const patients = useMemo(() => {
@@ -978,6 +1074,11 @@ export default function ConfluenceDashboard() {
           background: rgba(240,180,41,0.08); border: 1px solid rgba(240,180,41,0.3);
           border-radius: 7px; padding: 8px 10px; margin-bottom: 4px;
         }
+        .extraction-warning {
+          display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--critical);
+          background: rgba(240,85,95,0.08); border: 1px solid rgba(240,85,95,0.35);
+          border-radius: 7px; padding: 8px 10px; margin-bottom: 4px;
+        }
 
         .chat-panel { margin-top: 16px; }
         .chat-window {
@@ -1362,8 +1463,13 @@ export default function ConfluenceDashboard() {
                 </>
               ) : (
                 <div className="ins-form">
-                  {uploadedFileName && (
+                  {uploadedFileName && !extractionWarning && (
                     <div className="extracted-note"><Sparkles size={12} /> {t("extractedNote")}</div>
+                  )}
+                  {extractionWarning && (
+                    <div className="extraction-warning" role="alert">
+                      <AlertTriangle size={12} /> {extractionWarning}
+                    </div>
                   )}
                   <label className="ins-label">{t("formInsurer")}</label>
                   <select
