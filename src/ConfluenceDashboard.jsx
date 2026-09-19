@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, Languages, AlertTriangle } from "lucide-react";
+import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, Languages, AlertTriangle, MessageCircle } from "lucide-react";
 import AskConfluence from "./AskConfluence.jsx";
 import { formatRupees, parseRupees } from "./format.js";
 
@@ -508,6 +508,10 @@ function mapExtraction(extracted) {
 
 export default function ConfluenceDashboard() {
   const [activeTab, setActiveTab] = useState("ops");
+  // Chat is collapsed to just the floating action button by default; the
+  // drawer only ever renders while activeTab === "navigator" (see the FAB
+  // and drawer JSX near the end of this component).
+  const [chatOpen, setChatOpen] = useState(false);
   const [journeyStage, setJourneyStage] = useState(0);
   const [lang, setLang] = useState("en");
   const [selectedPatientId, setSelectedPatientId] = useState(BASE_PATIENTS[0].id);
@@ -558,6 +562,20 @@ export default function ConfluenceDashboard() {
   };
 
   const t = useMemo(() => (key) => translate(lang, key), [lang]);
+
+  // The chat FAB is visible on every tab, but only functions on Insurance
+  // Navigator (that's the only tab with a live policy/hospital/journey
+  // context to answer from). Clicking it from Admission Ops navigates to
+  // Insurance Navigator and opens the drawer in one step, rather than doing
+  // nothing -- simplest option given routing is just local tab state here.
+  const handleFabClick = () => {
+    if (activeTab !== "navigator") {
+      setActiveTab("navigator");
+      setChatOpen(true);
+      return;
+    }
+    setChatOpen((open) => !open);
+  };
 
   // --- Insurance card upload -> real Gemini extraction, with a mock fallback ---
   const handleUploadCard = async (e) => {
@@ -949,14 +967,50 @@ export default function ConfluenceDashboard() {
         .nav-grid { display: grid; grid-template-columns: 300px 1fr; gap: 16px; margin-bottom: 16px; }
         @media (max-width: 760px) { .nav-grid { grid-template-columns: 1fr; } }
 
-        /* Insurance Navigator's own chat lives in a right-side column next to
-           the main content (insurance summary, hospitals, care journey) --
-           narrower than the left column since it only needs to fit a chat
-           thread, not room chips or hospital cards. */
-        .nav-columns { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
-        @media (max-width: 980px) { .nav-columns { grid-template-columns: 1fr; } }
-        .nav-side .chat-panel { margin-top: 0; position: sticky; top: 16px; }
-        @media (max-width: 980px) { .nav-side .chat-panel { position: static; } }
+        /* Floating chat launcher -- fixed to the viewport, visible on every
+           tab. Functionality is gated in JS (handleFabClick); visually it's
+           always present so the affordance is discoverable from Ops too. */
+        .chat-fab {
+          position: fixed; right: 24px; bottom: 24px; z-index: 40;
+          width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          background: var(--policy); color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .chat-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,0.4); }
+        .chat-fab-tooltip {
+          position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+          background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+          font-size: 11.5px; font-weight: 600; white-space: nowrap;
+          padding: 6px 10px; border-radius: 6px;
+          opacity: 0; pointer-events: none; transition: opacity 0.15s ease;
+        }
+        .chat-fab:hover .chat-fab-tooltip, .chat-fab:focus-visible .chat-fab-tooltip { opacity: 1; }
+
+        /* Chat drawer -- overlay anchored to the right edge, opened by the FAB. */
+        .chat-drawer-overlay {
+          position: fixed; inset: 0; z-index: 50;
+          background: rgba(0,0,0,0.35);
+          display: flex; justify-content: flex-end;
+          animation: chatOverlayFadeIn 0.15s ease;
+        }
+        .chat-drawer {
+          position: relative; width: min(380px, 100vw); height: 100%;
+          background: var(--panel); border-left: 1px solid var(--border);
+          padding: 20px 16px; overflow-y: auto; box-sizing: border-box;
+          animation: chatDrawerSlideIn 0.2s ease;
+        }
+        .chat-drawer .chat-panel { margin-top: 28px; }
+        .chat-drawer-close {
+          position: absolute; top: 14px; right: 14px; z-index: 1;
+          width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border);
+          background: var(--panel2); color: var(--muted); cursor: pointer; font-size: 13px;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .chat-drawer-close:hover { color: var(--text); border-color: var(--policy); }
+        @keyframes chatOverlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes chatDrawerSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        @media (max-width: 480px) { .chat-drawer { width: 100vw; } }
 
         .ins-row {
           display: flex; justify-content: space-between; gap: 14px;
@@ -1434,8 +1488,6 @@ export default function ConfluenceDashboard() {
             </span>
           </div>
 
-          <div className="nav-columns">
-          <div className="nav-main">
           <div className="nav-grid">
             <div className="panel-like insurance-card">
               <div className="sidebar-title">
@@ -1597,22 +1649,39 @@ export default function ConfluenceDashboard() {
               </div>
             </div>
           </div>
-          </div>
+        </div>
+      )}
 
-          <div className="nav-side">
-          <AskConfluence
-            key={"nav-" + selectedPatientId}
-            mode="navigator"
-            lang={lang}
-            context={navChatContext}
-            labels={{
-              title: t("askTitle"),
-              placeholder: t("askPlaceholder"),
-              send: t("send"),
-              intro: t("askIntro"),
-            }}
-          />
-          </div>
+      {/* Floating chat launcher -- visible across the whole app, but only
+          opens/functions on the Insurance Navigator tab (see handleFabClick). */}
+      <button
+        className="chat-fab"
+        onClick={handleFabClick}
+        aria-label="Ask Confluence"
+        aria-expanded={activeTab === "navigator" && chatOpen}
+      >
+        <MessageCircle size={22} />
+        <span className="chat-fab-tooltip">Ask Confluence</span>
+      </button>
+
+      {activeTab === "navigator" && chatOpen && (
+        <div className="chat-drawer-overlay" onClick={() => setChatOpen(false)}>
+          <div className="chat-drawer" onClick={(e) => e.stopPropagation()}>
+            <button className="chat-drawer-close" onClick={() => setChatOpen(false)} aria-label="Close chat">
+              ✕
+            </button>
+            <AskConfluence
+              key={"nav-" + selectedPatientId}
+              mode="navigator"
+              lang={lang}
+              context={navChatContext}
+              labels={{
+                title: t("askTitle"),
+                placeholder: t("askPlaceholder"),
+                send: t("send"),
+                intro: t("askIntro"),
+              }}
+            />
           </div>
         </div>
       )}
