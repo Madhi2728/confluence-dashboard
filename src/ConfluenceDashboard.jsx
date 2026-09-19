@@ -698,21 +698,15 @@ export default function ConfluenceDashboard() {
     setEditingInsurance(false);
   };
 
-  // --- Context handed to the shared AskConfluence chat (live state, read at reply time) ---
+  // --- Context handed to the Insurance Navigator's AskConfluence chat (live
+  // state, read at reply time). Admission Ops no longer has its own chatbot --
+  // there is exactly one AskConfluence instance in the whole app now. ---
   const navChatContext = {
     profile: insurance,
     hospitals: HOSPITALS,
     stage: JOURNEY_STAGES[journeyStage],
     stageIndex: journeyStage,
     stageCount: JOURNEY_STAGES.length,
-  };
-  const opsChatContext = {
-    patients,
-    weights,
-    totalW,
-    bedsFree,
-    eventLog,
-    threshold: POLICY_MATCH_THRESHOLD,
   };
 
   return (
@@ -954,6 +948,15 @@ export default function ConfluenceDashboard() {
 
         .nav-grid { display: grid; grid-template-columns: 300px 1fr; gap: 16px; margin-bottom: 16px; }
         @media (max-width: 760px) { .nav-grid { grid-template-columns: 1fr; } }
+
+        /* Insurance Navigator's own chat lives in a right-side column next to
+           the main content (insurance summary, hospitals, care journey) --
+           narrower than the left column since it only needs to fit a chat
+           thread, not room chips or hospital cards. */
+        .nav-columns { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
+        @media (max-width: 980px) { .nav-columns { grid-template-columns: 1fr; } }
+        .nav-side .chat-panel { margin-top: 0; position: sticky; top: 16px; }
+        @media (max-width: 980px) { .nav-side .chat-panel { position: static; } }
 
         .ins-row {
           display: flex; justify-content: space-between; gap: 14px;
@@ -1376,8 +1379,6 @@ export default function ConfluenceDashboard() {
           })}
         </div>
       </div>
-
-      <AskConfluence mode="ops" lang="en" context={opsChatContext} />
       </>
       )}
 
@@ -1433,6 +1434,8 @@ export default function ConfluenceDashboard() {
             </span>
           </div>
 
+          <div className="nav-columns">
+          <div className="nav-main">
           <div className="nav-grid">
             <div className="panel-like insurance-card">
               <div className="sidebar-title">
@@ -1594,7 +1597,9 @@ export default function ConfluenceDashboard() {
               </div>
             </div>
           </div>
+          </div>
 
+          <div className="nav-side">
           <AskConfluence
             key={"nav-" + selectedPatientId}
             mode="navigator"
@@ -1607,6 +1612,8 @@ export default function ConfluenceDashboard() {
               intro: t("askIntro"),
             }}
           />
+          </div>
+          </div>
         </div>
       )}
     </div>
