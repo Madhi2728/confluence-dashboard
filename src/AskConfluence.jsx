@@ -444,7 +444,7 @@ export default function AskConfluence({ mode = "navigator", lang = "en", context
             )}
             {m.text}
             {m.role === "assistant" && ttsSupported && (
-              <button className="chat-speak-btn" onClick={() => toggleSpeak(i, m.text)} title="Listen">
+              <button type="button" className="chat-speak-btn" onClick={() => toggleSpeak(i, m.text)} title="Listen">
                 <Volume2 size={12} color={speakingIndex === i ? "var(--policy)" : undefined} />
               </button>
             )}
@@ -456,7 +456,7 @@ export default function AskConfluence({ mode = "navigator", lang = "en", context
       {messages.length === 0 && (
         <div className="chat-suggestions">
           {suggestions.map((s) => (
-            <button key={s} className="chat-suggestion" onClick={() => submit(s)}>
+            <button key={s} type="button" className="chat-suggestion" onClick={() => submit(s)}>
               {s}
             </button>
           ))}
@@ -466,7 +466,7 @@ export default function AskConfluence({ mode = "navigator", lang = "en", context
       {attachment && (
         <div className="chat-attachment-preview">
           <Paperclip size={12} /> {attachment.name}
-          <button className="chat-attachment-remove" onClick={() => setAttachment(null)}>
+          <button type="button" className="chat-attachment-remove" onClick={() => setAttachment(null)}>
             ✕
           </button>
         </div>
@@ -495,7 +495,7 @@ export default function AskConfluence({ mode = "navigator", lang = "en", context
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
         />
-        <button className="chat-send-btn" onClick={() => submit()}>
+        <button type="button" className="chat-send-btn" onClick={() => submit()}>
           <Send size={14} /> {text.send}
         </button>
       </div>
