@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, Languages, AlertTriangle, MessageCircle, Paperclip } from "lucide-react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, Languages, AlertTriangle, MessageCircle, Paperclip, Eye, X, Maximize2, Minimize2 } from "lucide-react";
 import AskConfluence from "./AskConfluence.jsx";
 import { formatRupees, parseRupees } from "./format.js";
 
@@ -520,6 +520,13 @@ export default function ConfluenceDashboard() {
   const [draftInsurance, setDraftInsurance] = useState(() => buildInsuranceFromPatient(BASE_PATIENTS[0]));
   const [uploading, setUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState(null);
+  // Local object URL for the "View" preview -- read-only, never sent
+  // anywhere; separate from the base64 payload the extraction call uses.
+  const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
+  const [uploadedIsImage, setUploadedIsImage] = useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [imageViewerFullscreen, setImageViewerFullscreen] = useState(false);
+  const imageViewerRef = useRef(null);
   const [extractionWarning, setExtractionWarning] = useState(null);
   const [weights, setWeights] = useState({ clinical: 45, policy: 30, resource: 25 });
   // No row expanded by default -- the queue loads fully collapsed; a row's
@@ -587,6 +594,18 @@ export default function ConfluenceDashboard() {
     setUploading(true);
     setExtractionWarning(null);
 
+    // Read-only local preview -- independent of the base64 payload sent for
+    // extraction below. PDFs (also accepted for upload) don't get a "View"
+    // image preview, only actual image files do.
+    const isImage = file.type
+      ? file.type.startsWith("image/")
+      : /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.name);
+    setUploadedIsImage(isImage);
+    setUploadedImageUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return isImage ? URL.createObjectURL(file) : null;
+    });
+
     const useMockFallback = (warning) => {
       setExtractionWarning(warning);
       setDraftInsurance({ ...MOCK_EXTRACTION, patientName: insurance.patientName });
@@ -640,11 +659,54 @@ export default function ConfluenceDashboard() {
     const currentPatient = allPatients.find((p) => p.id === selectedPatientId);
     const fallback = currentPatient ? buildInsuranceFromPatient(currentPatient) : insurance;
     setUploadedFileName(null);
+    setUploadedImageUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setUploadedIsImage(false);
+    setImageViewerOpen(false);
     setExtractionWarning(null);
     setEditingInsurance(false);
     setInsurance(fallback);
     setDraftInsurance(fallback);
   };
+
+  // --- Read-only image viewer (View icon next to the uploaded filename) ---
+  const fullscreenSupported = typeof document !== "undefined" && document.fullscreenEnabled;
+
+  const closeImageViewer = () => setImageViewerOpen(false);
+
+  const toggleImageViewerFullscreen = () => {
+    if (!imageViewerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      imageViewerRef.current.requestFullscreen().catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    if (!imageViewerOpen) return;
+
+    const onFullscreenChange = () => setImageViewerFullscreen(Boolean(document.fullscreenElement));
+
+    // First Escape while in fullscreen just exits fullscreen (the browser
+    // does that natively); only close the modal on Escape once it's not.
+    const onKeyDown = (e) => {
+      if (e.key !== "Escape") return;
+      if (document.fullscreenElement) return;
+      closeImageViewer();
+    };
+
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.removeEventListener("keydown", onKeyDown);
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      setImageViewerFullscreen(false);
+    };
+  }, [imageViewerOpen]);
 
   const patients = useMemo(() => {
     return allPatients
@@ -1148,11 +1210,46 @@ export default function ConfluenceDashboard() {
           display: flex; align-items: center; gap: 5px;
           font-size: 10.5px; color: var(--muted); margin-top: 6px;
         }
-        .upload-filename-remove {
-          margin-left: auto; background: none; border: none; color: var(--muted);
+        .upload-filename-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+        .upload-filename-action {
+          background: none; border: none; color: var(--muted);
           cursor: pointer; font-size: 12px; padding: 0; line-height: 1;
+          display: flex; align-items: center;
         }
+        .upload-filename-action:hover { color: var(--text); }
         .upload-filename-remove:hover { color: var(--critical); }
+
+        /* Read-only image viewer -- centered modal, dark backdrop, optional
+           native Fullscreen API on the modal element itself. */
+        .image-viewer-overlay {
+          position: fixed; inset: 0; z-index: 60;
+          background: rgba(0,0,0,0.75);
+          display: flex; align-items: center; justify-content: center;
+          padding: 32px; box-sizing: border-box;
+          animation: chatOverlayFadeIn 0.15s ease;
+        }
+        .image-viewer-modal {
+          position: relative; max-width: 100%; max-height: 100%;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+          padding: 44px 16px 16px; box-sizing: border-box;
+        }
+        .image-viewer-modal:fullscreen {
+          width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh;
+          border-radius: 0; padding: 56px 24px 24px; background: var(--bg);
+        }
+        .image-viewer-toolbar {
+          position: absolute; top: 10px; right: 10px; z-index: 1;
+          display: flex; align-items: center; gap: 6px;
+        }
+        .image-viewer-icon-btn {
+          width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+          background: var(--panel2); color: var(--muted); cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .image-viewer-icon-btn:hover { color: var(--text); border-color: var(--policy); }
+        .image-viewer-img { max-width: 100%; max-height: 78vh; object-fit: contain; border-radius: 6px; display: block; }
+        .image-viewer-modal:fullscreen .image-viewer-img { max-height: 90vh; }
         .extracted-note {
           display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--gold);
           background: rgba(240,180,41,0.08); border: 1px solid rgba(240,180,41,0.3);
@@ -1541,15 +1638,28 @@ export default function ConfluenceDashboard() {
                     {uploadedFileName && !uploading && (
                       <div className="upload-filename">
                         <Paperclip size={11} /> {uploadedFileName}
-                        <button
-                          type="button"
-                          className="upload-filename-remove"
-                          onClick={handleRemoveUploadedCard}
-                          aria-label="Remove uploaded insurance card"
-                          title="Remove uploaded insurance card"
-                        >
-                          ✕
-                        </button>
+                        <span className="upload-filename-actions">
+                          {uploadedIsImage && uploadedImageUrl && (
+                            <button
+                              type="button"
+                              className="upload-filename-action"
+                              onClick={() => setImageViewerOpen(true)}
+                              aria-label="View uploaded insurance card image"
+                              title="View uploaded insurance card image"
+                            >
+                              <Eye size={12} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="upload-filename-action upload-filename-remove"
+                            onClick={handleRemoveUploadedCard}
+                            aria-label="Remove uploaded insurance card"
+                            title="Remove uploaded insurance card"
+                          >
+                            ✕
+                          </button>
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1719,6 +1829,40 @@ export default function ConfluenceDashboard() {
                 send: t("send"),
                 intro: t("askIntro"),
               }}
+            />
+          </div>
+        </div>
+      )}
+
+      {imageViewerOpen && uploadedImageUrl && (
+        <div className="image-viewer-overlay" onClick={closeImageViewer}>
+          <div className="image-viewer-modal" ref={imageViewerRef} onClick={(e) => e.stopPropagation()}>
+            <div className="image-viewer-toolbar">
+              {fullscreenSupported && (
+                <button
+                  type="button"
+                  className="image-viewer-icon-btn"
+                  onClick={toggleImageViewerFullscreen}
+                  aria-label={imageViewerFullscreen ? "Exit fullscreen" : "View fullscreen"}
+                  title={imageViewerFullscreen ? "Exit fullscreen" : "View fullscreen"}
+                >
+                  {imageViewerFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                </button>
+              )}
+              <button
+                type="button"
+                className="image-viewer-icon-btn"
+                onClick={closeImageViewer}
+                aria-label="Close image preview"
+                title="Close image preview"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <img
+              src={uploadedImageUrl}
+              alt={uploadedFileName || "Uploaded insurance card"}
+              className="image-viewer-img"
             />
           </div>
         </div>
