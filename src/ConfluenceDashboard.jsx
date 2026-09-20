@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, Languages, AlertTriangle, MessageCircle } from "lucide-react";
+import { Activity, ShieldCheck, BedDouble, Clock, ChevronDown, SlidersHorizontal, Sparkles, ArrowRight, Zap, RotateCcw, IndianRupee, Timer, Users2, MapPin, Building2, Percent, Info, ListChecks, ArrowLeftRight, UploadCloud, Languages, AlertTriangle, MessageCircle, Paperclip } from "lucide-react";
 import AskConfluence from "./AskConfluence.jsx";
 import { formatRupees, parseRupees } from "./format.js";
 
@@ -629,6 +629,23 @@ export default function ConfluenceDashboard() {
     }
   };
 
+  // Removes an uploaded card and whatever it produced -- back to the
+  // pre-upload state for whichever patient is currently selected, not just
+  // an empty shell, so the panel never shows stale extracted data next to
+  // a "no file uploaded" filename row.
+  const handleRemoveUploadedCard = () => {
+    if (!window.confirm("Remove this insurance card? The extracted details will be cleared.")) {
+      return;
+    }
+    const currentPatient = allPatients.find((p) => p.id === selectedPatientId);
+    const fallback = currentPatient ? buildInsuranceFromPatient(currentPatient) : insurance;
+    setUploadedFileName(null);
+    setExtractionWarning(null);
+    setEditingInsurance(false);
+    setInsurance(fallback);
+    setDraftInsurance(fallback);
+  };
+
   const patients = useMemo(() => {
     return allPatients
       .map((p) => {
@@ -1127,7 +1144,15 @@ export default function ConfluenceDashboard() {
           color: var(--clinical); background: rgba(79,201,224,0.08); border: 1px dashed rgba(79,201,224,0.4);
           border-radius: 8px; padding: 8px 12px; cursor: pointer;
         }
-        .upload-filename { font-size: 10.5px; color: var(--muted); margin-top: 6px; }
+        .upload-filename {
+          display: flex; align-items: center; gap: 5px;
+          font-size: 10.5px; color: var(--muted); margin-top: 6px;
+        }
+        .upload-filename-remove {
+          margin-left: auto; background: none; border: none; color: var(--muted);
+          cursor: pointer; font-size: 12px; padding: 0; line-height: 1;
+        }
+        .upload-filename-remove:hover { color: var(--critical); }
         .extracted-note {
           display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--gold);
           background: rgba(240,180,41,0.08); border: 1px solid rgba(240,180,41,0.3);
@@ -1514,7 +1539,18 @@ export default function ConfluenceDashboard() {
                       <input type="file" accept="image/*,.pdf" onChange={handleUploadCard} disabled={uploading} hidden />
                     </label>
                     {uploadedFileName && !uploading && (
-                      <div className="upload-filename">{uploadedFileName}</div>
+                      <div className="upload-filename">
+                        <Paperclip size={11} /> {uploadedFileName}
+                        <button
+                          type="button"
+                          className="upload-filename-remove"
+                          onClick={handleRemoveUploadedCard}
+                          aria-label="Remove uploaded insurance card"
+                          title="Remove uploaded insurance card"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     )}
                   </div>
                 </>
