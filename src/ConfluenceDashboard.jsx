@@ -147,6 +147,7 @@ const UI_TEXT = {
     takeawayPrefix: "You're covered up to", takeawayMid: "for a", takeawayRoom: "room. Choosing",
     takeawaySuffix: "will likely mean extra out-of-pocket cost.",
     uploadCard: "Upload Insurance Card", analyzing: "Analyzing document…",
+    analyzeSubLabels: ["Reading card details…", "Matching policy fields…", "Verifying coverage limits…"],
     extractedNote: "Extracted from your uploaded document — review and save below.",
     extractionIncomplete: "Some fields couldn't be read — please review and edit manually.",
     extractionUnavailable: "Couldn't reach the extraction service — showing placeholder demo data. Please review and edit manually.",
@@ -465,6 +466,13 @@ const FORCE_MOCK_EXTRACTION = import.meta.env.VITE_FORCE_MOCK_EXTRACTION === "tr
 // notice a blank field on their own.
 const REQUIRED_SUMMARY_FIELDS = ["insurer", "policyType", "coverageLimit", "roomEligibility", "exclusions"];
 
+// Simulated "Analyzing document…" progress -- never reaches 100 on its own;
+// only the real response (success or fallback) does that.
+const ANALYZE_PROGRESS_CAP = 92;
+const ANALYZE_TIME_CONSTANT_MS = 1800; // controls how fast it eases toward the cap
+const ANALYZE_TICK_MS = 90;
+const ANALYZE_LABEL_INTERVAL_MS = 1600;
+
 function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -519,6 +527,12 @@ export default function ConfluenceDashboard() {
   const [editingInsurance, setEditingInsurance] = useState(false);
   const [draftInsurance, setDraftInsurance] = useState(() => buildInsuranceFromPatient(BASE_PATIENTS[0]));
   const [uploading, setUploading] = useState(false);
+  // Purely cosmetic simulated progress for the "Analyzing document…" state --
+  // Gemini reports no real progress, so this is an easing curve that
+  // approaches (never reaches) ANALYZE_PROGRESS_CAP until the real response
+  // lands (see the effect below, keyed on `uploading`).
+  const [analyzeProgress, setAnalyzeProgress] = useState(0);
+  const [analyzeLabelIndex, setAnalyzeLabelIndex] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState(null);
   // Local object URL for the "View" preview -- read-only, never sent
   // anywhere; separate from the base64 payload the extraction call uses.
@@ -600,10 +614,11 @@ export default function ConfluenceDashboard() {
     const isImage = file.type
       ? file.type.startsWith("image/")
       : /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.name);
+    const canPreview = isImage && typeof URL.createObjectURL === "function";
     setUploadedIsImage(isImage);
     setUploadedImageUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return isImage ? URL.createObjectURL(file) : null;
+      if (prev && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(prev);
+      return canPreview ? URL.createObjectURL(file) : null;
     });
 
     const useMockFallback = (warning) => {
@@ -660,7 +675,7 @@ export default function ConfluenceDashboard() {
     const fallback = currentPatient ? buildInsuranceFromPatient(currentPatient) : insurance;
     setUploadedFileName(null);
     setUploadedImageUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
+      if (prev && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(prev);
       return null;
     });
     setUploadedIsImage(false);
@@ -707,6 +722,41 @@ export default function ConfluenceDashboard() {
       setImageViewerFullscreen(false);
     };
   }, [imageViewerOpen]);
+
+  // Simulated progress + rotating sub-labels for "Analyzing document…".
+  // Purely cosmetic -- doesn't touch handleUploadCard's actual extraction
+  // call/timing/error handling; it only reads `uploading` to know when to
+  // run. Cleans up on every dependency change (upload finishes, the upload
+  // is otherwise cancelled so `uploading` goes false, or this component
+  // unmounts), so no stray interval ever outlives the analyzing state.
+  useEffect(() => {
+    if (!uploading) {
+      // Real response arrived (or there's nothing in flight) -- snap to 100
+      // rather than freezing at whatever the simulated cap was.
+      setAnalyzeProgress(100);
+      return;
+    }
+    const start = Date.now();
+    setAnalyzeProgress(0);
+    setAnalyzeLabelIndex(0);
+
+    const progressTimer = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const eased = ANALYZE_PROGRESS_CAP * (1 - Math.exp(-elapsed / ANALYZE_TIME_CONSTANT_MS));
+      setAnalyzeProgress(Math.min(ANALYZE_PROGRESS_CAP, eased));
+    }, ANALYZE_TICK_MS);
+
+    const labelTimer = setInterval(() => {
+      const labels = t("analyzeSubLabels");
+      setAnalyzeLabelIndex((i) => (Array.isArray(labels) && labels.length ? (i + 1) % labels.length : 0));
+    }, ANALYZE_LABEL_INTERVAL_MS);
+
+    return () => {
+      clearInterval(progressTimer);
+      clearInterval(labelTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploading]);
 
   const patients = useMemo(() => {
     return allPatients
@@ -1206,6 +1256,18 @@ export default function ConfluenceDashboard() {
           color: var(--clinical); background: rgba(79,201,224,0.08); border: 1px dashed rgba(79,201,224,0.4);
           border-radius: 8px; padding: 8px 12px; cursor: pointer;
         }
+        .upload-btn.analyzing { display: flex; width: 100%; cursor: default; padding: 9px 12px; box-sizing: border-box; }
+        .analyze-progress { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .analyze-progress-head { display: flex; align-items: center; gap: 7px; }
+        .analyze-progress-pct { margin-left: auto; font-family: 'IBM Plex Mono', monospace; }
+        .analyze-progress-bar {
+          height: 4px; border-radius: 4px; background: rgba(79,201,224,0.15); overflow: hidden;
+        }
+        .analyze-progress-fill {
+          height: 100%; border-radius: 4px; background: var(--clinical);
+          transition: width 0.1s linear;
+        }
+        .analyze-progress-sublabel { font-size: 10.5px; font-weight: 400; color: var(--muted); }
         .upload-filename {
           display: flex; align-items: center; gap: 5px;
           font-size: 10.5px; color: var(--muted); margin-top: 6px;
@@ -1630,9 +1692,27 @@ export default function ConfluenceDashboard() {
                   <div className="ins-row"><span>{t("exclusions")}</span><b className="exclusion-text">{insurance.exclusions.join(", ")}</b></div>
 
                   <div className="upload-block">
-                    <label className="upload-btn">
-                      <UploadCloud size={13} />
-                      {uploading ? t("analyzing") : t("uploadCard")}
+                    <label className={"upload-btn" + (uploading ? " analyzing" : "")}>
+                      {uploading ? (
+                        <div className="analyze-progress">
+                          <div className="analyze-progress-head">
+                            <UploadCloud size={13} />
+                            <span>{t("analyzing")}</span>
+                            <span className="analyze-progress-pct">{Math.round(analyzeProgress)}%</span>
+                          </div>
+                          <div className="analyze-progress-bar">
+                            <div className="analyze-progress-fill" style={{ width: `${analyzeProgress}%` }} />
+                          </div>
+                          <div className="analyze-progress-sublabel">
+                            {(t("analyzeSubLabels") || [])[analyzeLabelIndex]}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <UploadCloud size={13} />
+                          {t("uploadCard")}
+                        </>
+                      )}
                       <input type="file" accept="image/*,.pdf" onChange={handleUploadCard} disabled={uploading} hidden />
                     </label>
                     {uploadedFileName && !uploading && (
