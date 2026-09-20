@@ -522,7 +522,9 @@ export default function ConfluenceDashboard() {
   const [uploadedFileName, setUploadedFileName] = useState(null);
   const [extractionWarning, setExtractionWarning] = useState(null);
   const [weights, setWeights] = useState({ clinical: 45, policy: 30, resource: 25 });
-  const [expandedId, setExpandedId] = useState("P-104");
+  // No row expanded by default -- the queue loads fully collapsed; a row's
+  // score breakdown only opens when the user clicks it (see card-head below).
+  const [expandedId, setExpandedId] = useState(null);
   const [filter, setFilter] = useState("all");
 
   // --- Add-on: live event simulation state ---
