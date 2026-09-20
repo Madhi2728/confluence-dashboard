@@ -852,7 +852,15 @@ export default function ConfluenceDashboard() {
   // there is exactly one AskConfluence instance in the whole app now. ---
   const navChatContext = {
     profile: insurance,
-    hospitals: HOSPITALS,
+    // Same match score/reason the "Suggested Hospitals & Rooms" panel
+    // actually renders (via hospitalMatch below) -- forced to English
+    // regardless of the UI's selected language, since this is model
+    // context, not display text. Keeps the chatbot's answers consistent
+    // with what's on screen rather than recomputing anything independently.
+    hospitals: HOSPITALS.map((h) => {
+      const match = hospitalMatch(h, insurance);
+      return { ...h, matchScore: match.score, matchReason: hospitalReasonText((key) => translate("en", key), match) };
+    }),
     stage: JOURNEY_STAGES[journeyStage],
     stageIndex: journeyStage,
     stageCount: JOURNEY_STAGES.length,
@@ -1357,6 +1365,9 @@ export default function ConfluenceDashboard() {
         }
         .chat-bubble.flagged {
           background: rgba(240,85,95,0.08); border: 1px solid rgba(240,85,95,0.35); color: var(--text);
+        }
+        .chat-bubble.error {
+          background: rgba(240,180,41,0.08); border: 1px solid rgba(240,180,41,0.35); color: var(--muted); font-style: italic;
         }
         .flagged-label {
           display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700;
