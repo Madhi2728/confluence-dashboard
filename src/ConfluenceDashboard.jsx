@@ -1618,7 +1618,7 @@ export default function ConfluenceDashboard() {
                     </div>
 
                     <div className="legend">
-                      <span className="legend-item"><span className="dot" style={{ background: "var(--clinical)" }} /> Triage acuity layer</span>
+                      <span className="legend-item"><span className="dot" style={{ background: "var(--clinical)" }} /> Triage acuity layer (staff-assigned)</span>
                       <span className="legend-item"><span className="dot" style={{ background: "var(--policy)" }} /> Policy layer</span>
                       <span className="legend-item"><span className="dot" style={{ background: "var(--resource)" }} /> Resource layer</span>
                       <span className="legend-item"><ShieldCheck size={12} /> Explainable at every node</span>
