@@ -443,6 +443,51 @@ function stageField(stageKey, field, lang, index) {
   return index != null ? value[index] : value;
 }
 
+// Reused as-is by both Insurance Navigator and Admission Ops's Patient View --
+// same stage tracker, same "Insurance Guidance"/"Possible Alternatives" copy,
+// same coverage/logistics-only tone. A single shared `journeyStage` (not
+// per-patient) is intentional here, matching how the rest of the app already
+// treats it as one global "current stage" concept.
+function CareJourneyPanel({ lang, t, journeyStage, setJourneyStage }) {
+  return (
+    <div className="panel-like journey-panel">
+      <div className="sidebar-title"><ListChecks size={14} /> {t("careJourney")}</div>
+      <div className="stage-track">
+        {JOURNEY_STAGES.map((s, idx) => {
+          const statusText = idx < journeyStage ? t("completed") : idx === journeyStage ? t("current") : t("upcoming");
+          return (
+            <button
+              key={s.key}
+              className={"stage-btn" + (idx === journeyStage ? " active" : "") + (idx < journeyStage ? " done" : "")}
+              onClick={() => setJourneyStage(idx)}
+            >
+              <span className="stage-index">{idx + 1}</span>
+              <span className="stage-btn-text">
+                <span className="stage-btn-label">{stageField(s.key, "label", lang)}</span>
+                <span className="stage-btn-status">{statusText}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="stage-panel">
+        <div className="stage-title">{stageField(JOURNEY_STAGES[journeyStage].key, "label", lang)} · {t("insuranceGuidance")}</div>
+        <div className="stage-guidance">{stageField(JOURNEY_STAGES[journeyStage].key, "guidance", lang)}</div>
+
+        <div className="alt-title"><ArrowLeftRight size={12} /> {t("possibleAlternatives")}</div>
+        <div className="alt-list">
+          {JOURNEY_STAGES[journeyStage].alternatives.map((a, i) => (
+            <div className="alt-item" key={i}>
+              <div className="alt-item-title">{stageField(JOURNEY_STAGES[journeyStage].key, "altTitles", lang, i)}</div>
+              <div className="alt-item-detail">{stageField(JOURNEY_STAGES[journeyStage].key, "altDetails", lang, i)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Insurance-card extraction ---------------------------------------------
 // Real extraction calls POST /api/extract-insurance-card (Gemini, server-side
 // key). MOCK_EXTRACTION is kept as a fallback for two cases: (1) a live
@@ -516,6 +561,11 @@ function mapExtraction(extracted) {
 
 export default function ConfluenceDashboard() {
   const [activeTab, setActiveTab] = useState("ops");
+  // Admission Ops display mode -- "ops" (default, unchanged staff view: full
+  // ranked queue, weights, live events, score breakdowns) vs "patient" (one
+  // patient's own info only, no ranking internals). Purely a display
+  // toggle -- doesn't touch the ranking calculation itself.
+  const [opsViewMode, setOpsViewMode] = useState("ops");
   // Chat is collapsed to just the floating action button by default; the
   // drawer only ever renders while activeTab === "navigator" (see the FAB
   // and drawer JSX near the end of this component).
@@ -771,6 +821,13 @@ export default function ConfluenceDashboard() {
   }, [allPatients, weights, resourceBoosts]);
 
   const visible = filter === "all" ? patients : patients.filter((p) => p.priority === filter);
+
+  // Ops tab's Patient View shows exactly one patient's own info -- reuses
+  // the same `selectedPatientId`/`handleSelectPatient` the "Viewing for"
+  // selector already uses in Insurance Navigator, and reads from the same
+  // live-ranked `patients` array (post weights/boosts) so wait/ward stay
+  // in sync with whatever Ops staff are seeing, without exposing the score.
+  const patientViewPatient = patients.find((p) => p.id === selectedPatientId) || patients[0];
 
   const avgPolicyMatch = Math.round(allPatients.reduce((s, p) => s + p.policyMatch, 0) / allPatients.length);
   const criticalCount = allPatients.filter((p) => priorityOf(p.clinicalRisk) === "critical").length;
@@ -1083,6 +1140,23 @@ export default function ConfluenceDashboard() {
           background: var(--panel); border: 1px solid var(--border); color: var(--muted);
         }
         .tab-btn.active { background: var(--policy); border-color: var(--policy); color: #fff; }
+
+        .ops-view-toggle { display: flex; gap: 6px; margin-bottom: 18px; }
+        .ops-view-btn {
+          font-family: inherit; font-size: 12px; font-weight: 600;
+          padding: 7px 14px; border-radius: 8px; cursor: pointer;
+          background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
+        }
+        .ops-view-btn.active { background: var(--clinical); border-color: var(--clinical); color: #0a0f16; }
+
+        .patient-view-layout { display: flex; flex-direction: column; gap: 16px; }
+        .patient-view-select-wrap { display: flex; align-items: center; gap: 8px; }
+        .patient-status-name { font-size: 15px; font-weight: 700; margin-top: 4px; }
+        .patient-status-line { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+        .patient-status-facts { display: flex; gap: 24px; margin-top: 16px; flex-wrap: wrap; }
+        .patient-status-fact { display: flex; align-items: center; gap: 10px; color: var(--clinical); }
+        .patient-status-fact-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+        .patient-status-fact-value { font-size: 14px; font-weight: 700; color: var(--text); }
 
         .panel-like { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
 
@@ -1437,6 +1511,24 @@ export default function ConfluenceDashboard() {
         <Info size={14} />
         <span>{t("disclaimer")}</span>
       </div>
+
+      <div className="ops-view-toggle">
+        <button
+          className={"ops-view-btn" + (opsViewMode === "ops" ? " active" : "")}
+          onClick={() => setOpsViewMode("ops")}
+        >
+          Ops View
+        </button>
+        <button
+          className={"ops-view-btn" + (opsViewMode === "patient" ? " active" : "")}
+          onClick={() => setOpsViewMode("patient")}
+        >
+          Patient View
+        </button>
+      </div>
+
+      {opsViewMode === "ops" && (
+      <>
       <div className="header">
         <div className="brand">
           <div className="brand-mark">
@@ -1630,6 +1722,57 @@ export default function ConfluenceDashboard() {
           })}
         </div>
       </div>
+      </>
+      )}
+
+      {opsViewMode === "patient" && (
+        <div className="layout patient-view-layout">
+          <div className="patient-view-select-wrap">
+            <span className="patient-select-label">{t("viewingFor")}</span>
+            <select
+              className="patient-select"
+              value={selectedPatientId}
+              onChange={(e) => handleSelectPatient(e.target.value)}
+            >
+              {allPatients.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} — {p.condition}</option>
+              ))}
+            </select>
+          </div>
+
+          {patientViewPatient && (
+            <>
+              <div className="panel-like patient-status-card">
+                <div className="sidebar-title"><ShieldCheck size={14} /> Your Admission Status</div>
+                <div className="patient-status-name">
+                  {patientViewPatient.name} <span style={{ color: "var(--muted)", fontWeight: 400 }}>· {patientViewPatient.age}{patientViewPatient.sex}</span>
+                </div>
+                <div className="patient-status-line">
+                  Your case is being reviewed and matched with available resources.
+                </div>
+                <div className="patient-status-facts">
+                  <div className="patient-status-fact">
+                    <Clock size={16} />
+                    <div>
+                      <div className="patient-status-fact-label">Estimated Wait</div>
+                      <div className="patient-status-fact-value">{patientViewPatient.wait}</div>
+                    </div>
+                  </div>
+                  <div className="patient-status-fact">
+                    <BedDouble size={16} />
+                    <div>
+                      <div className="patient-status-fact-label">Assigned Ward</div>
+                      <div className="patient-status-fact-value">{patientViewPatient.bed}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <CareJourneyPanel lang={lang} t={t} journeyStage={journeyStage} setJourneyStage={setJourneyStage} />
+            </>
+          )}
+        </div>
+      )}
       </>
       )}
 
@@ -1853,41 +1996,7 @@ export default function ConfluenceDashboard() {
             </div>
           </div>
 
-          <div className="panel-like journey-panel">
-            <div className="sidebar-title"><ListChecks size={14} /> {t("careJourney")}</div>
-            <div className="stage-track">
-              {JOURNEY_STAGES.map((s, idx) => {
-                const statusText = idx < journeyStage ? t("completed") : idx === journeyStage ? t("current") : t("upcoming");
-                return (
-                  <button
-                    key={s.key}
-                    className={"stage-btn" + (idx === journeyStage ? " active" : "") + (idx < journeyStage ? " done" : "")}
-                    onClick={() => setJourneyStage(idx)}
-                  >
-                    <span className="stage-index">{idx + 1}</span>
-                    <span className="stage-btn-text">
-                      <span className="stage-btn-label">{stageField(s.key, "label", lang)}</span>
-                      <span className="stage-btn-status">{statusText}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="stage-panel">
-              <div className="stage-title">{stageField(JOURNEY_STAGES[journeyStage].key, "label", lang)} · {t("insuranceGuidance")}</div>
-              <div className="stage-guidance">{stageField(JOURNEY_STAGES[journeyStage].key, "guidance", lang)}</div>
-
-              <div className="alt-title"><ArrowLeftRight size={12} /> {t("possibleAlternatives")}</div>
-              <div className="alt-list">
-                {JOURNEY_STAGES[journeyStage].alternatives.map((a, i) => (
-                  <div className="alt-item" key={i}>
-                    <div className="alt-item-title">{stageField(JOURNEY_STAGES[journeyStage].key, "altTitles", lang, i)}</div>
-                    <div className="alt-item-detail">{stageField(JOURNEY_STAGES[journeyStage].key, "altDetails", lang, i)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <CareJourneyPanel lang={lang} t={t} journeyStage={journeyStage} setJourneyStage={setJourneyStage} />
         </div>
       )}
 

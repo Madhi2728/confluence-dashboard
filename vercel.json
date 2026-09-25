@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/extract-insurance-card.js": {
+      "maxDuration": 60
+    }
+  }
+}

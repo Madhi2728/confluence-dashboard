@@ -62,6 +62,95 @@ function jsonError(res, status, error, extra) {
   return res.status(status).json({ ok: false, error, ...extra });
 }
 
+// Retry-with-backoff, but ONLY for Gemini's transient 503 "high demand"
+// response -- 400s, auth errors (401/403), a dead model (404), etc. are
+// never retried, they're real failures the caller needs to see immediately.
+//
+// Individual Gemini calls have been observed live taking anywhere from
+// ~2s to ~54s under load, so this is budget-aware rather than a fixed
+// retry count: it tracks elapsed time against FUNCTION_TIME_BUDGET_MS
+// (comfortably under this function's 60s maxDuration, see vercel.json)
+// and refuses to start another attempt without enough headroom left to
+// plausibly finish.
+//
+// That alone still isn't enough, though: a live rapid-fire test showed 2
+// genuine FUNCTION_INVOCATION_TIMEOUT kills even with this budget check,
+// because it can only decide *whether to retry* after an attempt already
+// finished -- it can't stop a single attempt that itself hangs past the
+// platform's 60s ceiling. Each attempt now carries its own AbortController
+// cutoff (dynamically sized to whatever's left of the time budget) so we
+// always regain control and return one of our own controlled responses --
+// real data, a retried result, or a clean error the client's existing
+// mock-fallback path handles -- instead of ever risking Vercel's own kill.
+const MAX_GEMINI_ATTEMPTS = 3;
+const GEMINI_RETRY_DELAY_MS = 1500;
+const FUNCTION_TIME_BUDGET_MS = 55000; // a few seconds of margin under the 60s ceiling
+const RESPONSE_PROCESSING_BUFFER_MS = 3000; // reserved for JSON parsing/normalization + Vercel's own dispatch overhead after the last Gemini call returns
+const MIN_HEADROOM_FOR_RETRY_MS = 10000; // don't start another attempt with less runway than this
+const MIN_ATTEMPT_TIMEOUT_MS = 5000; // defensive floor -- see note below; not expected to trigger given MIN_HEADROOM_FOR_RETRY_MS > this
+
+async function fetchGeminiOnce(apiKey, requestBody, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(geminiEndpoint(apiKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function callGeminiWithRetry(apiKey, requestBody, startedAt) {
+  for (let attempt = 1; attempt <= MAX_GEMINI_ATTEMPTS; attempt++) {
+    const elapsedBefore = Date.now() - startedAt;
+    const attemptTimeoutMs = FUNCTION_TIME_BUDGET_MS - RESPONSE_PROCESSING_BUFFER_MS - elapsedBefore;
+
+    // Only reachable if the constants above are ever retuned inconsistently
+    // (MIN_HEADROOM_FOR_RETRY_MS, checked before every retry below, is
+    // already well above this floor) -- kept as a hard safety net so this
+    // function can never fall through without returning or throwing.
+    if (attemptTimeoutMs < MIN_ATTEMPT_TIMEOUT_MS) {
+      throw new Error("Ran out of time budget before Gemini could be retried.");
+    }
+
+    let response;
+    try {
+      response = await fetchGeminiOnce(apiKey, requestBody, attemptTimeoutMs);
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        throw err; // genuine network failure -- not retried, propagates to the handler's existing catch
+      }
+      const elapsed = Date.now() - startedAt;
+      const remaining = FUNCTION_TIME_BUDGET_MS - RESPONSE_PROCESSING_BUFFER_MS - elapsed;
+      const isLastAttempt = attempt === MAX_GEMINI_ATTEMPTS;
+      if (isLastAttempt || remaining < MIN_HEADROOM_FOR_RETRY_MS) {
+        throw new Error(`Gemini API call timed out after ~${Math.round(attemptTimeoutMs / 1000)}s.`);
+      }
+      continue; // already spent the whole attempt timeout waiting -- no extra backoff delay
+    }
+
+    if (response.ok || response.status !== 503) {
+      return response; // success, or a non-retryable failure -- caller handles both as before
+    }
+
+    const elapsed = Date.now() - startedAt;
+    const remaining = FUNCTION_TIME_BUDGET_MS - RESPONSE_PROCESSING_BUFFER_MS - elapsed;
+    const isLastAttempt = attempt === MAX_GEMINI_ATTEMPTS;
+    if (isLastAttempt || remaining < MIN_HEADROOM_FOR_RETRY_MS) {
+      return response; // give up -- caller reports this 503 as the final result
+    }
+
+    // Retrying, not returning this response -- drain its body so the
+    // connection doesn't dangle, then back off briefly before the next try.
+    await response.text().catch(() => {});
+    await new Promise((resolve) => setTimeout(resolve, GEMINI_RETRY_DELAY_MS));
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -105,13 +194,10 @@ export default async function handler(req, res) {
     },
   };
 
+  const startedAt = Date.now();
   let geminiResponse;
   try {
-    geminiResponse = await fetch(geminiEndpoint(apiKey), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
-    });
+    geminiResponse = await callGeminiWithRetry(apiKey, requestBody, startedAt);
   } catch (err) {
     return jsonError(res, 502, `Could not reach Gemini API: ${err.message}`);
   }

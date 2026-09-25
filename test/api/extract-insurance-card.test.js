@@ -171,7 +171,7 @@ describe("api/extract-insurance-card", () => {
     expect(res.body.error).toMatch(/Could not reach Gemini API/);
   });
 
-  it("returns a clear error when Gemini answers with 503 (observed live: free-tier overload)", async () => {
+  it("retries a 503 up to MAX_GEMINI_ATTEMPTS (3), then reports it, when Gemini keeps saying 'high demand'", async () => {
     const handler = await loadHandler();
     const res = createMockRes();
     // Matches the actual response seen in a live run against this account's
@@ -187,9 +187,115 @@ describe("api/extract-insurance-card", () => {
 
     await handler({ method: "POST", body: { imageBase64: TINY_BASE64_PNG } }, res);
 
+    expect(global.fetch).toHaveBeenCalledTimes(3); // 1 initial + 2 retries, then gives up
     expect(res.statusCode).toBe(502);
     expect(res.body.ok).toBe(false);
     expect(res.body.error).toMatch(/Gemini API returned 503/);
+  }, 10000); // 2 real ~1.5s backoff delays -- padded against flakiness when the full suite runs under load
+
+  it("retries once on a 503 and returns the successful result from the retry, without the client ever seeing the transient failure", async () => {
+    const handler = await loadHandler();
+    const res = createMockRes();
+    let call = 0;
+    global.fetch = vi.fn(() => {
+      call += 1;
+      if (call === 1) {
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: async () => JSON.stringify({ error: { code: 503, status: "UNAVAILABLE" } }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: JSON.stringify(fixture.fields) }] }, finishReason: "STOP" }],
+        }),
+      });
+    });
+
+    await handler({ method: "POST", body: { imageBase64: TINY_BASE64_PNG } }, res);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.data.insurer).toBe(fixture.fields.insurer);
+  }, 10000); // real ~1.5s backoff delay -- padded against flakiness when the full suite runs under load
+
+  it("does NOT retry a non-503 failure (e.g. a bad request) -- fails fast on the first attempt", async () => {
+    const handler = await loadHandler();
+    const res = createMockRes();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: async () => JSON.stringify({ error: { code: 400, message: "Invalid request." } }),
+    });
+
+    await handler({ method: "POST", body: { imageBase64: TINY_BASE64_PNG } }, res);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1); // no retry attempted
+    expect(res.statusCode).toBe(502);
+    expect(res.body.error).toMatch(/Gemini API returned 400/);
+  });
+
+  it("does NOT retry a 503 once the time budget is exhausted -- avoids risking a FUNCTION_INVOCATION_TIMEOUT", async () => {
+    const handler = await loadHandler();
+    const res = createMockRes();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: async () => JSON.stringify({ error: { code: 503, status: "UNAVAILABLE" } }),
+    });
+
+    // Simulate the first attempt alone having already burned ~50s of the
+    // ~55s budget (the 47.9s/54s cases observed live) -- Date.now() is read
+    // for `startedAt`, again to size attempt 1's own AbortController
+    // timeout (negligible elapsed at that point), then again to compute
+    // elapsed time after the first failed attempt.
+    const dateSpy = vi.spyOn(Date, "now");
+    dateSpy.mockReturnValueOnce(1_000_000); // startedAt
+    dateSpy.mockReturnValueOnce(1_000_000); // elapsedBefore attempt 1 (sizing its timeout)
+    dateSpy.mockReturnValueOnce(1_000_000 + 50_000); // elapsed check after attempt 1
+    dateSpy.mockReturnValue(1_000_000 + 50_000); // anything further, if ever read again
+
+    await handler({ method: "POST", body: { imageBase64: TINY_BASE64_PNG } }, res);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1); // gave up immediately, no retry attempted
+    expect(res.statusCode).toBe(502);
+    expect(res.body.error).toMatch(/Gemini API returned 503/);
+    dateSpy.mockRestore();
+  });
+
+  it("aborts a single Gemini call that hangs past its allotted time, returning a controlled error instead of risking a platform timeout", async () => {
+    vi.useFakeTimers(); // this attempt's own timeout is ~52s -- fast-forward rather than really wait
+    try {
+      const handler = await loadHandler();
+      const res = createMockRes();
+
+      // A fetch that never resolves on its own -- only rejects if its signal
+      // is aborted, exactly like a real hung request behaves once our own
+      // AbortController fires.
+      global.fetch = vi.fn((url, init) => {
+        return new Promise((_resolve, reject) => {
+          init.signal.addEventListener("abort", () => {
+            const err = new Error("The operation was aborted.");
+            err.name = "AbortError";
+            reject(err);
+          });
+        });
+      });
+
+      const handlerPromise = handler({ method: "POST", body: { imageBase64: TINY_BASE64_PNG } }, res);
+      await vi.advanceTimersByTimeAsync(60000); // past the ~52s attempt timeout
+      await handlerPromise;
+
+      expect(global.fetch).toHaveBeenCalledTimes(1); // aborted with no budget left for a retry -- gave up
+      expect(res.statusCode).toBe(502);
+      expect(res.body.ok).toBe(false);
+      expect(res.body.error).toMatch(/timed out/i);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("returns a clear error when Gemini's response text isn't valid JSON", async () => {
