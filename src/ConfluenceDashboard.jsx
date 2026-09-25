@@ -1468,6 +1468,15 @@ export default function ConfluenceDashboard() {
           margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px;
         }
 
+        .chat-voice-error {
+          display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--critical);
+          background: rgba(240,85,95,0.08); border: 1px solid rgba(240,85,95,0.35);
+          border-radius: 7px; padding: 6px 10px; margin-bottom: 8px;
+        }
+        .chat-voice-error-dismiss {
+          margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px;
+        }
+
         .chat-icon-btn {
           display: flex; align-items: center; justify-content: center;
           width: 38px; height: 38px; flex-shrink: 0; border-radius: 8px; cursor: pointer;
@@ -1478,6 +1487,8 @@ export default function ConfluenceDashboard() {
           color: #fff; background: var(--critical); border-color: var(--critical);
           animation: micPulse 1.1s ease infinite;
         }
+        .chat-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .chat-icon-btn:disabled:hover { color: var(--muted); border-color: var(--border); }
         @keyframes micPulse {
           0% { box-shadow: 0 0 0 0 rgba(240,85,95,0.5); }
           70% { box-shadow: 0 0 0 8px rgba(240,85,95,0); }

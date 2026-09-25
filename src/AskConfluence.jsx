@@ -1,8 +1,27 @@
 import React, { useMemo, useRef, useState } from "react";
-import { MessageCircle, Send, ShieldAlert, Mic, Volume2, Paperclip } from "lucide-react";
+import { MessageCircle, Send, ShieldAlert, Mic, Volume2, Paperclip, AlertTriangle } from "lucide-react";
 
 // --- Voice assistant locale mapping (browser Web Speech API, no external service) ---
 const SPEECH_LOCALES = { en: "en-IN", hi: "hi-IN", ta: "ta-IN", kn: "kn-IN", te: "te-IN" };
+
+// SpeechRecognition's error codes -> a short, user-facing explanation. Shown
+// inline rather than failing silently (e.g. a blocked mic permission should
+// never just look like the button did nothing).
+function voiceErrorMessage(code) {
+  switch (code) {
+    case "not-allowed":
+    case "permission-denied":
+      return "Microphone access was blocked. Allow microphone permission for this site to use voice input.";
+    case "no-speech":
+      return "Didn't catch that — no speech detected. Try again.";
+    case "audio-capture":
+      return "No microphone was found. Check your device's microphone and try again.";
+    case "network":
+      return "Voice input needs an internet connection — please check yours and try again.";
+    default:
+      return "Voice input didn't work this time. Please try again or type your question.";
+  }
+}
 
 // --- Guardrails — enforce the competition brief's explicit boundary:
 // "must not provide medical diagnoses, clinical treatment recommendations, or binding insurance advice."
@@ -81,6 +100,7 @@ export default function AskConfluence({ mode = "navigator", lang = "en", context
   const [typing, setTyping] = useState(false);
   const [attachment, setAttachment] = useState(null);
   const [listening, setListening] = useState(false);
+  const [voiceError, setVoiceError] = useState(null);
   const [speakingIndex, setSpeakingIndex] = useState(null);
   const recognitionRef = useRef(null);
 
@@ -171,20 +191,52 @@ export default function AskConfluence({ mode = "navigator", lang = "en", context
       setListening(false);
       return;
     }
+    setVoiceError(null);
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recog = new Ctor();
-    recog.lang = SPEECH_LOCALES[lang] || "en-IN";
-    recog.interimResults = false;
+    // "en-IN" is a legitimate BCP-47 tag, but on real hardware it's a known
+    // Web Speech API failure mode: if that specific regional locale isn't
+    // provisioned on the browser/OS, recognition doesn't error -- it just
+    // silently returns nothing (no onresult, no onerror, just an eventual
+    // onend). "en-US" is the one locale reliably provisioned everywhere the
+    // API works at all, so English defaults to that; other UI languages
+    // keep their own locale since that's what a speaker of that language
+    // actually needs.
+    recog.lang = lang === "en" ? "en-US" : SPEECH_LOCALES[lang] || "en-US";
+    recog.continuous = false; // one utterance per click -- auto-stops after a pause in speech
+    // interimResults=true gives live partial text as a bonus, and doubles as
+    // a safety net: if a final result is ever slow/dropped, whatever was
+    // already recognized is still visible rather than nothing at all.
+    recog.interimResults = true;
     recog.maxAlternatives = 1;
+
+    const baseInput = input; // whatever was already typed before this click; mic output appends to it
+    recog.onaudiostart = () => console.log("[voice] onaudiostart -- mic capture began");
     recog.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setInput((prev) => (prev ? prev + " " + transcript : transcript));
+      let utterance = "";
+      for (let i = 0; i < event.results.length; i++) utterance += event.results[i][0].transcript;
+      console.log("[voice] onresult", { isFinal: event.results[event.results.length - 1]?.isFinal, utterance });
+      setInput(baseInput ? `${baseInput} ${utterance}` : utterance);
     };
-    recog.onend = () => setListening(false);
-    recog.onerror = () => setListening(false);
+    recog.onend = () => {
+      console.log("[voice] onend");
+      setListening(false);
+    };
+    recog.onerror = (event) => {
+      console.log("[voice] onerror", event && event.error);
+      setListening(false);
+      setVoiceError(voiceErrorMessage(event && event.error));
+    };
     recognitionRef.current = recog;
     setListening(true);
-    recog.start();
+    try {
+      recog.start();
+    } catch {
+      // Some browsers throw synchronously (e.g. start() called again before
+      // the previous session fully tore down) rather than firing onerror.
+      setListening(false);
+      setVoiceError(voiceErrorMessage());
+    }
   };
 
   // --- Text-to-speech playback of assistant replies ---
@@ -261,21 +313,29 @@ export default function AskConfluence({ mode = "navigator", lang = "en", context
         </div>
       )}
 
+      {voiceError && (
+        <div className="chat-voice-error" role="alert">
+          <AlertTriangle size={12} /> {voiceError}
+          <button type="button" className="chat-voice-error-dismiss" onClick={() => setVoiceError(null)}>
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className="chat-input-row">
         <label className="chat-icon-btn" title="Attach a file">
           <Paperclip size={15} />
           <input type="file" accept="image/*,.pdf,.doc,.docx" onChange={onAttach} hidden />
         </label>
-        {speechSupported && (
-          <button
-            className={"chat-icon-btn" + (listening ? " listening" : "")}
-            onClick={toggleListening}
-            title={listening ? "Stop listening" : "Speak your question"}
-            type="button"
-          >
-            <Mic size={15} />
-          </button>
-        )}
+        <button
+          className={"chat-icon-btn" + (listening ? " listening" : "")}
+          onClick={toggleListening}
+          title={speechSupported ? (listening ? "Stop listening" : "Speak your question") : "Voice input not supported in this browser"}
+          type="button"
+          disabled={!speechSupported}
+        >
+          <Mic size={15} />
+        </button>
         <input
           className="chat-input"
           type="text"
