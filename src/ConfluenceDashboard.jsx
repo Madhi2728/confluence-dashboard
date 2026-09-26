@@ -1013,10 +1013,15 @@ export default function ConfluenceDashboard() {
           justify-content: space-between;
           align-items: flex-start;
           gap: 20px;
-          padding-bottom: 22px;
+          padding: 16px 0 22px;
           border-bottom: 1px solid var(--border);
           margin-bottom: 22px;
           flex-wrap: wrap;
+          position: sticky;
+          top: 0;
+          z-index: 20;
+          background: var(--bg);
+          box-shadow: 0 8px 16px -10px rgba(0,0,0,0.55);
         }
         .brand { display: flex; align-items: center; gap: 12px; }
         .brand-mark {
@@ -1212,7 +1217,12 @@ export default function ConfluenceDashboard() {
 
         .panel-like { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
 
-        .nav-header { padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }
+        .nav-header {
+          padding: 16px 0 20px; border-bottom: 1px solid var(--border); margin-bottom: 18px;
+          display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
+          position: sticky; top: 0; z-index: 20; background: var(--bg);
+          box-shadow: 0 8px 16px -10px rgba(0,0,0,0.55);
+        }
         .patient-select-wrap { display: flex; align-items: center; gap: 8px; }
         .patient-select-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
         .patient-select {
