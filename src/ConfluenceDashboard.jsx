@@ -1008,20 +1008,23 @@ export default function ConfluenceDashboard() {
         .mono { font-family: 'IBM Plex Mono', monospace; }
         .display { font-family: 'Space Grotesk', sans-serif; }
 
-        .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 20px;
-          padding: 16px 0 22px;
-          border-bottom: 1px solid var(--border);
-          margin-bottom: 22px;
-          flex-wrap: wrap;
+        .app-sticky-top {
           position: sticky;
           top: 0;
           z-index: 20;
           background: var(--bg);
           box-shadow: 0 8px 16px -10px rgba(0,0,0,0.55);
+          padding-top: 16px;
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px;
+          padding-bottom: 22px;
+          border-bottom: 1px solid var(--border);
+          margin-bottom: 22px;
+          flex-wrap: wrap;
         }
         .brand { display: flex; align-items: center; gap: 12px; }
         .brand-mark {
@@ -1218,10 +1221,8 @@ export default function ConfluenceDashboard() {
         .panel-like { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
 
         .nav-header {
-          padding: 16px 0 20px; border-bottom: 1px solid var(--border); margin-bottom: 18px;
-          display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
-          position: sticky; top: 0; z-index: 20; background: var(--bg);
-          box-shadow: 0 8px 16px -10px rgba(0,0,0,0.55);
+          padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 18px;
+          display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 14px;
         }
         .patient-select-wrap { display: flex; align-items: center; gap: 8px; }
         .patient-select-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
@@ -1578,13 +1579,45 @@ export default function ConfluenceDashboard() {
         }
       `}</style>
 
-      <div className="tab-switch">
-        <button className={"tab-btn" + (activeTab === "ops" ? " active" : "")} onClick={() => setActiveTab("ops")}>
-          {t("opsTab")}
-        </button>
-        <button className={"tab-btn" + (activeTab === "navigator" ? " active" : "")} onClick={() => setActiveTab("navigator")}>
-          {t("navTab")}
-        </button>
+      <div className="app-sticky-top">
+        <div className="header">
+          <div className="brand">
+            <div className="brand-mark">
+              <Sparkles size={18} color="#0a0f16" />
+            </div>
+            <div>
+              <div className="title display">CONFLUENCE</div>
+              <div className="subtitle">Policy-Integrated Admission &amp; Treatment Intelligence — live queue</div>
+            </div>
+          </div>
+          <div className="stats">
+            <div className="stat">
+              <div className="stat-label">Beds Free</div>
+              <div className="stat-value mono">{bedsFree}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">In Queue</div>
+              <div className="stat-value mono">{allPatients.length}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Critical</div>
+              <div className="stat-value mono" style={{ color: "var(--critical)" }}>{criticalCount}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Avg Policy Match</div>
+              <div className="stat-value mono">{avgPolicyMatch}%</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="tab-switch">
+          <button className={"tab-btn" + (activeTab === "ops" ? " active" : "")} onClick={() => setActiveTab("ops")}>
+            {t("opsTab")}
+          </button>
+          <button className={"tab-btn" + (activeTab === "navigator" ? " active" : "")} onClick={() => setActiveTab("navigator")}>
+            {t("navTab")}
+          </button>
+        </div>
       </div>
 
       {activeTab === "ops" && (
@@ -1611,35 +1644,6 @@ export default function ConfluenceDashboard() {
 
       {opsViewMode === "ops" && (
       <>
-      <div className="header">
-        <div className="brand">
-          <div className="brand-mark">
-            <Sparkles size={18} color="#0a0f16" />
-          </div>
-          <div>
-            <div className="title display">CONFLUENCE</div>
-            <div className="subtitle">Policy-Integrated Admission &amp; Treatment Intelligence — live queue</div>
-          </div>
-        </div>
-        <div className="stats">
-          <div className="stat">
-            <div className="stat-label">Beds Free</div>
-            <div className="stat-value mono">{bedsFree}</div>
-          </div>
-          <div className="stat">
-            <div className="stat-label">In Queue</div>
-            <div className="stat-value mono">{allPatients.length}</div>
-          </div>
-          <div className="stat">
-            <div className="stat-label">Critical</div>
-            <div className="stat-value mono" style={{ color: "var(--critical)" }}>{criticalCount}</div>
-          </div>
-          <div className="stat">
-            <div className="stat-label">Avg Policy Match</div>
-            <div className="stat-value mono">{avgPolicyMatch}%</div>
-          </div>
-        </div>
-      </div>
 
       <div className="impact-banner">
         <div className="impact-card">
@@ -1861,13 +1865,6 @@ export default function ConfluenceDashboard() {
       {activeTab === "navigator" && (
         <div className="navigator">
           <div className="nav-header">
-            <div className="brand">
-              <div className="brand-mark"><Sparkles size={18} color="#0a0f16" /></div>
-              <div>
-                <div className="title display">CONFLUENCE</div>
-                <div className="subtitle">{t("navTab")} — {insurance.patientName}</div>
-              </div>
-            </div>
             <div className="nav-header-controls">
               <div className="patient-select-wrap">
                 <Languages size={13} />
