@@ -1495,13 +1495,22 @@ export default function ConfluenceDashboard() {
           100% { box-shadow: 0 0 0 0 rgba(240,85,95,0); }
         }
 
-        .chat-input-row { display: flex; gap: 8px; }
+        /* Every element in this row shares an explicit 38px height (matching
+           .chat-icon-btn's fixed size) and align-items: center, rather than
+           relying on flexbox's implicit stretch default -- so the row stays
+           correctly aligned regardless of each element's own font metrics,
+           browser, or future edits to its content/padding. */
+        .chat-input-row { display: flex; align-items: center; gap: 8px; }
         .chat-input {
-          flex: 1; background: var(--panel2); border: 1px solid var(--border); color: var(--text);
-          font-family: inherit; font-size: 12.5px; padding: 10px 12px; border-radius: 8px;
+          flex: 1; min-width: 0; height: 38px; box-sizing: border-box;
+          background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+          font-family: inherit; font-size: 12.5px; padding: 0 12px; border-radius: 8px;
         }
         .chat-send-btn {
-          display: flex; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 600;
+          display: flex; align-items: center; justify-content: center; gap: 6px;
+          flex-shrink: 0; white-space: nowrap;
+          height: 38px; box-sizing: border-box;
+          font-family: inherit; font-size: 12px; font-weight: 600;
           background: var(--policy); border: 1px solid var(--policy); color: #fff;
           padding: 0 16px; border-radius: 8px; cursor: pointer;
         }
